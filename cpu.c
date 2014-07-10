@@ -555,31 +555,31 @@ static void RES(unsigned char bit, unsigned char reg)
 	switch(reg)
 	{
 		case 0: /* B */
-			c.B ^= bit;
+			c.B &= ~bit;
 		break;
 		case 1: /* C */
-			c.C ^= bit;
+			c.C &= ~bit;
 		break;
 		case 2: /* D */
-			c.D ^= bit;
+			c.D &= ~bit;
 		break;
 		case 3: /* E */
-			c.E ^= bit;
+			c.E &= ~bit;
 		break;
 		case 4: /* H */
-			c.H ^= bit;
+			c.H &= ~bit;
 		break;
 		case 5: /* L */
-			c.L ^= bit;
+			c.L &= ~bit;
 		break;
 		case 6: /* (HL) */
 			t = mem_get_byte(get_HL());
-			t ^= bit;
+			t &= ~bit;
 			mem_write_byte(get_HL(), t);
 			c.cycles += 2;
 		break;
 		case 7: /* A */
-			c.A ^= bit;
+			c.A &= ~bit;
 		break;
 	}
 }
@@ -649,7 +649,7 @@ static void decode_CB(unsigned char t)
 
 	bit = opcode&7;
 	opcode >>= 3;
-	f2[opcode](bit, reg);
+	f2[opcode](1<<bit, reg);
 }
 
 void cpu_interrupt(unsigned short vector)
@@ -1956,10 +1956,10 @@ int cpu_cycle(void)
 		break;
 		case 0xFE:  /* CP a, imm8 */
 			t = mem_get_byte(c.PC+1);
-			set_Z(!(c.A - t));
+			set_Z(c.A == t);
 			set_N(1);
 			set_H(((c.A - t)&0xF) > (c.A&0xF));
-			set_C((c.A - t) > c.A);
+			set_C(c.A < t);
 			c.PC += 2;
 			c.cycles += 2;
 		break;

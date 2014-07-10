@@ -2,6 +2,7 @@
 #include "cpu.h"
 
 static int enabled;
+static int pending;
 
 /* Pending interrupt flags */
 static unsigned int vblank;
@@ -17,14 +18,19 @@ static unsigned int timer_masked;
 static unsigned int serial_masked;
 static unsigned int joypad_masked;
 
-static void interrupt_flush(void)
+/* Returns true if the cpu should be unhalted */
+int interrupt_flush(void)
 {
-	/* Flush the highest priority interrupt.
-	 * This disables interrupts, so if we're actually dealing with many
-	 * interrupts at once, the act of re-enabling interrupts at the end of the
-	 * interrupt handler will allow them all to be serviced, because this step
-	 * is also performed in interrupt_enable().
-	 */
+	/* Flush the highest priority interrupt and/or resume the cpu */
+
+	/* This is set when an interrupt happens mid-cycle, we can clear it now */
+	pending = 0;
+
+	/* There's a pending interrupt but interrupts are disabled, just resume the cpu */
+	if(!enabled && (vblank || lcdstat || timer || serial || joypad))
+		return 1;
+
+	/* Interrupts are enabled - Check if any need to fire */
 	if(vblank && !vblank_masked)
 	{
 		vblank = 0;
@@ -50,6 +56,8 @@ static void interrupt_flush(void)
 		joypad = 0;
 		cpu_interrupt(0x60);
 	}
+
+	return 0;
 }
 
 void interrupt_enable(void)
@@ -61,6 +69,11 @@ void interrupt_enable(void)
 void interrupt_disable(void)
 {
 	enabled = 0;
+}
+
+int interrupt_pending(void)
+{
+	return pending;
 }
 
 void interrupt(unsigned int n)
@@ -94,7 +107,7 @@ void interrupt(unsigned int n)
 
 unsigned char interrupt_get_IF(void)
 {
-	unsigned char mask = 0;
+	unsigned char mask = 0xE0;
 
 	mask |= (vblank  << 0);
 	mask |= (lcdstat << 1);
@@ -112,6 +125,9 @@ void interrupt_set_IF(unsigned char mask)
 	timer   = !!(mask & 0x04);
 	serial  = !!(mask & 0x08);
 	joypad  = !!(mask & 0x10);
+
+	if(enabled && mask)
+		pending = 1;
 }
 
 unsigned char interrupt_get_mask(void)
@@ -122,7 +138,7 @@ unsigned char interrupt_get_mask(void)
 	mask |= (!lcdstat_masked << 1);
 	mask |= (!timer_masked   << 2);
 	mask |= (!serial_masked  << 3);
-	mask |= (!joypad_masked << 4);
+	mask |= (!joypad_masked  << 4);
 
 	return mask;
 }

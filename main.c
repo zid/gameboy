@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
 {
 	int r;
 
-	r = rom_load("zelda.gb");
+	r = rom_load("opcode.gb");
 	if(!r)
 		return 0;
 
@@ -30,6 +30,8 @@ int main(int argc, char *argv[])
 
 		if(!lcd_cycle())
 			break;
+
+		timer_cycle();
 	}
 
 	sdl_quit();

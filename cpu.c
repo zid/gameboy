@@ -673,6 +673,9 @@ int cpu_cycle(void)
 	unsigned short s;
 	unsigned int i;
 
+	if(interrupt_flush())
+		halted = 0;
+
 	if(halted)
 	{
 		c.cycles += 1;
@@ -681,7 +684,7 @@ int cpu_cycle(void)
 
 	b = mem_get_byte(c.PC);
 
-	if(c.PC == 0xC086 && get_BC() == 0x16DD && get_AF() == 0xDFC0)
+	if(c.PC == 0xC317)
 		is_debugged = 1;
 
 	if(is_debugged)
@@ -1936,8 +1939,10 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0xF8:  /* LD HL, SP + imm8 */
-			t = mem_get_byte(c.PC+1);
-			set_HL(c.SP + t);
+			set_HL(c.SP + (signed char)mem_get_byte(c.PC+1));
+			set_N(0);
+			set_Z(0);
+			/* FIXME: Set H and C */
 			c.PC += 2;
 			c.cycles += 3;
 		break;

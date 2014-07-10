@@ -5,8 +5,9 @@
 #include "lcd.h"
 #include "mbc.h"
 #include "interrupt.h"
+#include "timer.h"
 
-#include <stdio.h>
+#include <stdio.h> /* For serial logging */
 
 static unsigned char *mem;
 static int DMA_pending = 0;
@@ -39,6 +40,18 @@ unsigned char mem_get_byte(unsigned short i)
 
 	switch(i)
 	{
+		case 0xFF04:
+			return timer_get_div();
+		break;
+		case 0xFF05:
+			return timer_get_counter();
+		break;
+		case 0xFF06:
+			return timer_get_modulo();
+		break;
+		case 0xFF07:
+			return timer_get_tac();
+		break;
 		case 0xFF0F:
 			return interrupt_get_IF();
 		break;
@@ -81,6 +94,18 @@ void mem_write_byte(unsigned short d, unsigned char i)
 	{
 		case 0xFF01: /* Link port data */
 			fprintf(stderr, "%c", i);
+		break;
+		case 0xFF04:
+			timer_set_div(i);
+		break;
+		case 0xFF05:
+			timer_set_counter(i);
+		break;
+		case 0xFF06:
+			timer_set_modulo(i);
+		break;
+		case 0xFF07:
+			timer_set_tac(i);
 		break;
 		case 0xFF0F:
 			interrupt_set_IF(i);

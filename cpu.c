@@ -889,7 +889,7 @@ int cpu_cycle(void)
 		case 0x22:  /* ldi (hl), a */
 			s = get_HL();
 			mem_write_byte(s, c.A);
-	        s++;
+			s++;
 			set_HL(s);
 			c.PC += 1;
 			c.cycles += 2;
@@ -904,7 +904,7 @@ int cpu_cycle(void)
 		case 0x24:  /* INC H */
 			c.H++;
 			set_Z(!c.H);
-			set_H(c.H == 0x10);
+			set_H((c.H&0xF) == 0);
 			set_N(0);
 			c.PC += 1;
 			c.cycles += 1;
@@ -1019,7 +1019,7 @@ int cpu_cycle(void)
 		case 0x32:  /* LDD (HL), A */
 			s = get_HL();
 			mem_write_byte(s, c.A);
-	        s--;
+			s--;
 			set_HL(s);
 			c.PC += 1;
 			c.cycles += 2;
@@ -1030,7 +1030,7 @@ int cpu_cycle(void)
 			mem_write_byte(get_HL(), t);
 			set_Z(!t);
 			set_N(1);
-			set_H(t & 0x10);
+			set_H((t & 0xF) == 0);
 			c.PC += 1;
 			c.cycles += 1;
 		break;
@@ -1068,7 +1068,7 @@ int cpu_cycle(void)
 		case 0x3C:  /* INC A */
 			c.A++;
 			set_Z(!c.A);
-			set_H(c.A == 0x10);
+			set_H((c.A&0xF) == 0);
 			set_N(0);
 			c.PC += 1;
 			c.cycles += 1;
@@ -1404,7 +1404,7 @@ int cpu_cycle(void)
 			set_H((c.A&0xF)+(c.B&0xF) > 0xF);
 			set_C(i > 0xFF);
 			set_N(0);
-			c.A = i&0xFF;
+			c.A = i;
 			c.PC += 1;
 			c.cycles += 2;
 		break;
@@ -1413,7 +1413,7 @@ int cpu_cycle(void)
 			set_H((c.A&0xF)+(c.C&0xF) > 0xF);
 			set_C(i > 0xFF);
 			set_N(0);
-			c.A = i&0xFF;
+			c.A = i;
 			c.PC += 1;
 			c.cycles += 2;
 		break;
@@ -1422,7 +1422,7 @@ int cpu_cycle(void)
 			set_H((c.A&0xF)+(c.D&0xF) > 0xF);
 			set_C(i > 0xFF);
 			set_N(0);
-			c.A = i&0xFF;
+			c.A = i;
 			c.PC += 1;
 			c.cycles += 2;
 		break;
@@ -1431,7 +1431,7 @@ int cpu_cycle(void)
 			set_H((c.A&0xF)+(c.E&0xF) > 0xF);
 			set_C(i > 0xFF);
 			set_N(0);
-			c.A = i&0xFF;
+			c.A = i;
 			c.PC += 1;
 			c.cycles += 2;
 		break;
@@ -1440,7 +1440,7 @@ int cpu_cycle(void)
 			set_H((c.A&0xF)+(c.H&0xF) > 0xF);
 			set_C(i > 0xFF);
 			set_N(0);
-			c.A = i&0xFF;
+			c.A = i;
 			c.PC += 1;
 			c.cycles += 2;
 		break;
@@ -1449,7 +1449,7 @@ int cpu_cycle(void)
 			set_H((c.A&0xF)+(c.L&0xF) > 0xF);
 			set_C(i > 0xFF);
 			set_N(0);
-			c.A = i&0xFF;
+			c.A = i;
 			c.PC += 1;
 			c.cycles += 2;
 		break;
@@ -1458,7 +1458,7 @@ int cpu_cycle(void)
 			set_H((i&0xF) < c.A&0xF);
 			set_C(i > 0xFF);
 			set_N(0);
-			c.A = i&0xFF;
+			c.A = i;
 			c.PC += 1;
 			c.cycles += 2;
 		break;
@@ -1467,7 +1467,7 @@ int cpu_cycle(void)
 			set_H((c.A&0xF)+(c.A&0xF) > 0xF);
 			set_C(i > 0xFF);
 			set_N(0);
-			c.A = i&0xFF;
+			c.A = i;
 			c.PC += 1;
 			c.cycles += 2;
 		break;

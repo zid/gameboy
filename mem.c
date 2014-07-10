@@ -6,7 +6,10 @@
 #include "mbc.h"
 #include "interrupt.h"
 
-unsigned char *mem;
+#include <stdio.h>
+
+static unsigned char *mem;
+static int DMA_pending = 0;
 
 void mem_bank_switch(unsigned int n)
 {
@@ -15,8 +18,25 @@ void mem_bank_switch(unsigned int n)
 	memcpy(&mem[0x4000], &b[n * 0x4000], 0x4000);
 }
 
+/* LCD's access to VRAM */
+unsigned char mem_get_raw(unsigned short p)
+{
+	return mem[p];
+}
+
 unsigned char mem_get_byte(unsigned short i)
 {
+	unsigned long elapsed;
+
+	if(DMA_pending && i < 0xFF80)
+	{
+		elapsed = cpu_get_cycles() - DMA_pending;
+		if(elapsed >= 160)
+			DMA_pending = 0;
+		else
+			return mem[0xFE00+elapsed];
+	}
+
 	switch(i)
 	{
 		case 0xFF0F:
@@ -34,6 +54,15 @@ unsigned char mem_get_byte(unsigned short i)
 
 unsigned short mem_get_word(unsigned short i)
 {
+	unsigned long elapsed;
+	if(DMA_pending && i < 0xFF80)
+	{
+		elapsed = cpu_get_cycles() - DMA_pending;
+		if(elapsed >= 160)
+			DMA_pending = 0;
+		else
+			return mem[0xFE00+elapsed];
+	}
 	return mem[i] | (mem[i+1]<<8);
 }
 
@@ -50,6 +79,9 @@ void mem_write_byte(unsigned short d, unsigned char i)
 
 	switch(d)
 	{
+		case 0xFF01: /* Link port data */
+			fprintf(stderr, "%c", i);
+		break;
 		case 0xFF0F:
 			interrupt_set_IF(i);
 			return;
@@ -58,7 +90,9 @@ void mem_write_byte(unsigned short d, unsigned char i)
 			lcd_write_control(i);
 		break;
 		case 0xFF46: /* OAM DMA */
-
+			/* Copy bytes from i*0x100 to OAM */
+			memcpy(&mem[0xFE00], &mem[i*0x100], 0xA0);
+			DMA_pending = cpu_get_cycles();
 		break;
 		case 0xFFFF:
 			interrupt_set_mask(i);

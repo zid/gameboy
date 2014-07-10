@@ -745,7 +745,7 @@ int cpu_cycle(void)
 			i = get_HL() + get_BC();
 			set_N(0);
 			set_C(i >= 0x10000);
-			set_H(i&0xFFF <  get_HL()&0xFFF);
+			set_H((i&0xFFF) < (get_HL()&0xFFF));
 			c.PC += 1;
 			c.cycles += 2;
 		break;
@@ -822,11 +822,14 @@ int cpu_cycle(void)
 			c.PC += (signed char)mem_get_byte(c.PC+1) + 2;
 			c.cycles += 3;
 		break;
+			i = get_HL() + get_BC();
+			set_N(0);
+			set_C(i >= 0x10000);
+			set_H((i&0xFFF) < (get_HL()&0xFFF));
 		case 0x19:  /* ADD HL, DE */
-			i = get_HL();
-			i += get_DE();
-			set_H(get_HL() < 0x800 && i >= 0x800);
-			set_HL(i & 0xFFFF);
+			i = get_HL() + get_DE();
+			set_H((i&0xFFF) < (get_HL()&0xFFF));
+			set_HL(i);
 			set_N(0);
 			set_C(i > 0xFFFF);
 			c.PC += 1;
@@ -928,7 +931,7 @@ int cpu_cycle(void)
 			if(flag_N)
 			{
 				if(flag_H)
-					s -= 0x06;
+					s = (s - 0x06)&0xFF;
 				if(flag_C)
 					s -= 0x60;
 			}
@@ -943,7 +946,8 @@ int cpu_cycle(void)
 			c.A = s;
 			set_H(0);
 			set_Z(!c.A);
-			set_C(s >= 0x100);
+			if(s >= 0x100)
+				set_C(1);
 			c.PC += 1;
 			c.cycles += 1;
 		break;
@@ -958,12 +962,11 @@ int cpu_cycle(void)
 			}
 		break;
 		case 0x29:  /* ADD HL, HL */
-			s = get_HL();
-			set_C(s > s+s);
-			s += s;
-			set_HL(s);
+			i = get_HL()*2;
+			set_H((i&0xFFF) < (get_HL()&0xFFF));
+			set_C(i > 0xFFFF);
+			set_HL(i);
 			set_N(0);
-			//set_H()
 			c.PC += 1;
 			c.cycles += 2;
 		break;

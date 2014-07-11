@@ -22,8 +22,12 @@ static unsigned int joypad_masked;
 int interrupt_flush(void)
 {
 	/* Flush the highest priority interrupt and/or resume the cpu */
+	if(pending == 2)
+	{
+		pending--;
+		return 0;
+	}
 
-	/* This is set when an interrupt happens mid-cycle, we can clear it now */
 	pending = 0;
 
 	/* There's a pending interrupt but interrupts are disabled, just resume the cpu */
@@ -63,17 +67,12 @@ int interrupt_flush(void)
 void interrupt_enable(void)
 {
 	enabled = 1;
-	interrupt_flush();
+	pending = 2;
 }
 
 void interrupt_disable(void)
 {
 	enabled = 0;
-}
-
-int interrupt_pending(void)
-{
-	return pending;
 }
 
 void interrupt(unsigned int n)

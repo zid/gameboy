@@ -684,7 +684,7 @@ int cpu_cycle(void)
 
 	b = mem_get_byte(c.PC);
 
-	if(c.PC == 0xC317)
+	if(c.PC == 0x100)
 		is_debugged = 1;
 
 	if(is_debugged)
@@ -743,6 +743,11 @@ int cpu_cycle(void)
 			RLC(7);
 			c.PC += 1;
 			c.cycles += 1;
+		break;
+		case 0x08:	/* LD (imm16), SP */
+			mem_write_word(mem_get_word(c.PC+1), c.SP);
+			c.PC += 3;
+			c.cycles += 5;
 		break;
 		case 0x09: 	/* ADD HL, BC */
 			i = get_HL() + get_BC();
@@ -813,6 +818,14 @@ int cpu_cycle(void)
 			c.D++;
 			set_Z(!c.D);
 			set_N(0);
+			c.PC += 1;
+			c.cycles += 1;
+		break;
+		case 0x15:  /* DEC B */
+			c.D--;
+			set_Z(!c.D);
+			set_N(1);
+			set_H((c.D & 0xF) == 0xF);
 			c.PC += 1;
 			c.cycles += 1;
 		break;
@@ -1000,6 +1013,11 @@ int cpu_cycle(void)
 			c.PC += 1;
 			c.cycles += 1;
 		break;
+		case 0x2E:  /* LD L, imm8 */
+			c.L = mem_get_byte(c.PC+1);
+			c.PC += 2;
+			c.cycles += 2;
+		break;
 		case 0x2F:  /* CPL */
 			c.A = ~c.A;
 			set_N(1);
@@ -1023,10 +1041,14 @@ int cpu_cycle(void)
 			c.cycles += 3;
 		break;
 		case 0x32:  /* LDD (HL), A */
-			s = get_HL();
-			mem_write_byte(s, c.A);
-			s--;
-			set_HL(s);
+			i = get_HL();
+			mem_write_byte(i, c.A);
+			set_HL(i-1);
+			c.PC += 1;
+			c.cycles += 2;
+		break;
+		case 0x33:	/* INC SP */
+			c.SP++;
 			c.PC += 1;
 			c.cycles += 2;
 		break;
@@ -1055,6 +1077,13 @@ int cpu_cycle(void)
 			c.PC += 2;
 			c.cycles += 3;
 		break;
+		case 0x37:	/* SCF */
+			set_N(0);
+			set_H(0);
+			set_C(1);
+			c.PC += 1;
+			c.cycles += 1;
+		break;
 		case 0x38:  /* JR C, rel8 */
 			if(flag_C == 1)
 			{
@@ -1065,9 +1094,23 @@ int cpu_cycle(void)
 				c.cycles += 2;
 			}
 		break;
+		case 0x39:	/* ADD HL, SP */
+			i = get_HL() + c.SP;
+			set_C(i >= 0x10000);
+			set_H((i&0xFFF) < (get_HL()&0xFFF));
+			set_N(0);
+			set_HL(i);
+			c.PC += 1;
+			c.cycles += 2;
+		break;
 		case 0x3A:	/* LDD A, (HL) */
 			c.A = mem_get_byte(get_HL());
 			set_HL(get_HL()-1);
+			c.PC += 1;
+			c.cycles += 2;
+		break;
+		case 0x3B:	/* DEC SP */
+			c.SP--;
 			c.PC += 1;
 			c.cycles += 2;
 		break;
@@ -1469,12 +1512,23 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0x87:  /* ADD A */
-			i = c.A + c.C;
+			i = c.A + c.A;
 			set_H((c.A&0xF)+(c.A&0xF) > 0xF);
 			set_C(i > 0xFF);
 			set_N(0);
 			c.A = i;
 			c.PC += 1;
+			c.cycles += 2;
+		break;
+		case 0x8E:  /* ADC (HL) */
+			t = mem_get_byte(get_HL());
+			i = c.A + t + flag_C >= 0x100;
+			set_N(0);
+			set_H(((c.A&0xF) + (t&0xF) + flag_C) >= 0x10);
+			c.A = c.A + t + flag_C;
+			set_C(i);
+			set_Z(!c.A);
+			c.PC += 2;
 			c.cycles += 2;
 		break;
 		case 0x90:  /* SUB B */
@@ -1567,8 +1621,38 @@ int cpu_cycle(void)
 			c.PC += 1;
 			c.cycles += 1;
 		break;
+		case 0xA8:	/* XOR B */
+			c.A ^= c.B;
+			c.F = (!c.A)<<7;
+			c.PC += 1;
+			c.cycles += 1;
+		break;
 		case 0xA9:  /* XOR C */
 			c.A ^= c.C;
+			c.F = (!c.A)<<7;
+			c.PC += 1;
+			c.cycles += 1;
+		break;
+		case 0xAA:	/* XOR D */
+			c.A ^= c.D;
+			c.F = (!c.A)<<7;
+			c.PC += 1;
+			c.cycles += 1;
+		break;
+		case 0xAB:	/* XOR E */
+			c.A ^= c.E;
+			c.F = (!c.E)<<7;
+			c.PC += 1;
+			c.cycles += 1;
+		break;
+		case 0xAC:	/* XOR H */
+			c.A ^= c.H;
+			c.F = (!c.A)<<7;
+			c.PC += 1;
+			c.cycles += 1;
+		break;
+		case 0xAD:	/* XOR L */
+			c.A ^= c.L;
 			c.F = (!c.A)<<7;
 			c.PC += 1;
 			c.cycles += 1;
@@ -1668,6 +1752,15 @@ int cpu_cycle(void)
 			c.PC += 1;
 			c.cycles += 1;
 		break;
+		case 0xBE:  /* CP (HL) */
+			i = mem_get_byte(get_HL());
+			set_Z(c.A == i);
+			set_H((c.A & 0x10) && ((c.A-i) & 0x8));
+			set_N(1);
+			set_C((c.A - i) > c.A);
+			c.PC += 1;
+			c.cycles += 1;
+		break;
 		case 0xBF:  /* CP A */
 			set_Z(1);
 			set_H((c.A & 0x10) && ((c.A-c.A) & 0x8));
@@ -1675,6 +1768,17 @@ int cpu_cycle(void)
 			set_C(0);
 			c.PC += 1;
 			c.cycles += 1;
+		break;
+		case 0xC0:  /* RET NZ */
+			if(!flag_Z)
+			{
+				c.PC = mem_get_word(c.SP);
+				c.SP += 2;
+				c.cycles += 3;
+			} else {
+				c.PC += 1;
+				c.cycles += 1;
+			}
 		break;
 		case 0xC1:  /* POP BC */
 			s = mem_get_word(c.SP);
@@ -1863,8 +1967,8 @@ int cpu_cycle(void)
 			c.cycles += 3;
 		break;
 		case 0xE1:  /* POP HL */
-			s = mem_get_word(c.SP);
-			set_HL(s);
+			i = mem_get_word(c.SP);
+			set_HL(i);
 			c.SP += 2;
 			c.PC += 1;
 			c.cycles += 3;
@@ -1891,6 +1995,16 @@ int cpu_cycle(void)
 			c.PC += 2;
 			c.cycles += 2;
 		break;
+		case 0xE8:	/* ADD SP, imm8 */
+			i = mem_get_byte(c.PC+1);
+			set_Z(0);
+			set_N(0);
+			set_C(((c.SP+i)&0xFF) < (c.SP&0xFF));
+			set_H(((c.SP+i)&0xF) < (c.SP&0xF));
+			c.SP = c.SP + (signed char)i;
+			c.PC += 2;
+			c.cycles += 4;
+		break;
 		case 0xE9:  /* JP HL */
 			c.PC = get_HL();
 			c.cycles += 1;
@@ -1907,6 +2021,12 @@ int cpu_cycle(void)
 			c.PC += 2;
 			c.cycles += 2;
 		break;
+		case 0xEF:	/* RST 28 */
+			c.SP -= 2;
+			mem_write_word(c.SP, c.PC+1);
+			c.PC = 0x28;
+			c.cycles += 4;
+		break;
 		case 0xF0:  /* ld a, (FF00 + imm8) */
 			t = mem_get_byte(c.PC+1);
 			c.A = mem_get_byte(0xFF00 + t);
@@ -1920,6 +2040,10 @@ int cpu_cycle(void)
 			c.PC += 1;
 			c.cycles += 3;
 		break;
+		case 0xF2:  /* ld a, (FF00 + c) */
+			c.A = mem_get_byte(0xFF00 + c.C);
+			c.PC += 1;
+			c.cycles += 2;
 		break;
 		case 0xF3:  /* DI */
 			c.PC += 1;
@@ -1939,10 +2063,12 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0xF8:  /* LD HL, SP + imm8 */
-			set_HL(c.SP + (signed char)mem_get_byte(c.PC+1));
+			i = mem_get_byte(c.PC+1);
 			set_N(0);
 			set_Z(0);
-			/* FIXME: Set H and C */
+			set_C(((c.SP+i)&0xFF) < (c.SP&0xFF));
+			set_H(((c.SP+i)&0xF) < (c.SP&0xF));
+			set_HL(c.SP + (signed char)i);
 			c.PC += 2;
 			c.cycles += 3;
 		break;
@@ -1958,9 +2084,9 @@ int cpu_cycle(void)
 			c.cycles += 4;
 		break;
 		case 0xFB:  /* EI */
+			interrupt_enable();
 			c.PC += 1;
 			c.cycles += 1;
-			interrupt_enable();
 		break;
 		case 0xFE:  /* CP a, imm8 */
 			t = mem_get_byte(c.PC+1);

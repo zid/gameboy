@@ -40,6 +40,9 @@ unsigned char mem_get_byte(unsigned short i)
 
 	switch(i)
 	{
+		case 0xFF00:	/* Joypad */
+			return 0xF;
+		break;
 		case 0xFF04:
 			return timer_get_div();
 		break;
@@ -57,6 +60,9 @@ unsigned char mem_get_byte(unsigned short i)
 		break;
 		case 0xFF44:
 			return lcd_get_line();
+		break;
+		case 0xFF4D:	/* GBC speed switch */
+			return 0xFF;
 		break;
 		case 0xFFFF:
 			return interrupt_get_mask();

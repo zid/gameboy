@@ -649,7 +649,7 @@ static void decode_CB(unsigned char t)
 
 	bit = opcode&7;
 	opcode >>= 3;
-	f2[opcode](1<<bit, reg);
+	f2[opcode-1](1<<bit, reg);
 }
 
 void cpu_interrupt(unsigned short vector)
@@ -684,7 +684,7 @@ int cpu_cycle(void)
 
 	b = mem_get_byte(c.PC);
 
-	if(c.PC == 0x100)
+	if(c.PC == 0x231C)
 		is_debugged = 1;
 
 	if(is_debugged)
@@ -906,10 +906,10 @@ int cpu_cycle(void)
 			c.cycles += 3;
 		break;
 		case 0x22:  /* ldi (hl), a */
-			s = get_HL();
-			mem_write_byte(s, c.A);
-			s++;
-			set_HL(s);
+			i = get_HL();
+			mem_write_byte(i, c.A);
+			i++;
+			set_HL(i);
 			c.PC += 1;
 			c.cycles += 2;
 		break;

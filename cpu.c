@@ -684,7 +684,7 @@ int cpu_cycle(void)
 
 	b = mem_get_byte(c.PC);
 
-	if(c.PC == 0x231C)
+	if(c.PC == 0x100)
 		is_debugged = 1;
 
 	if(is_debugged)
@@ -831,17 +831,13 @@ int cpu_cycle(void)
 		break;
 		case 0x16:  /* LD D, imm8 */
 			c.D = mem_get_byte(c.PC+1);
-			c.PC += 1;
+			c.PC += 2;
 			c.cycles += 2;
 		break;
 		case 0x18:  /* JR rel8 */
 			c.PC += (signed char)mem_get_byte(c.PC+1) + 2;
 			c.cycles += 3;
 		break;
-			i = get_HL() + get_BC();
-			set_N(0);
-			set_C(i >= 0x10000);
-			set_H((i&0xFFF) < (get_HL()&0xFFF));
 		case 0x19:  /* ADD HL, DE */
 			i = get_HL() + get_DE();
 			set_H((i&0xFFF) < (get_HL()&0xFFF));
@@ -1407,6 +1403,7 @@ int cpu_cycle(void)
 			halted = 1;
 			c.PC += 1;
 			c.cycles += 1;
+			printf("Halted: IF: %x, IE: %x\n", interrupt_get_IF(), interrupt_get_mask());
 		break;
 		case 0x77:  /* LD (HL), A */
 			mem_write_byte(get_HL(), c.A);
@@ -1892,6 +1889,12 @@ int cpu_cycle(void)
 			set_Z(!c.A);
 			c.PC += 2;
 			c.cycles += 2;
+		break;
+		case 0xCF:	/* RST 08 */
+			c.SP -= 2;
+			mem_write_word(c.SP, c.PC+1);
+			c.PC = 0x0008;
+			c.cycles += 4;
 		break;
 		case 0xD0:  /* RET NC */
 			if(flag_C == 0)

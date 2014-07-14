@@ -1,5 +1,12 @@
+#ifdef _WIN32
 #include <windows.h>
+#else
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#endif
 #include <stdio.h>
+#include <string.h>
 #include "rom.h"
 
 unsigned char *bytes;
@@ -190,11 +197,17 @@ unsigned int rom_get_mapper(void)
 
 int rom_load(const char *filename)
 {
+#ifdef _WIN32
 	HANDLE f, map;
+#else
+	int f;
+	size_t length;
+	struct stat st;
+#endif
 	unsigned char *bytes;
 
-
-    f = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL,
+#ifdef _WIN32
+	f = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL,
 		OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	if(f == INVALID_HANDLE_VALUE)
@@ -207,7 +220,17 @@ int rom_load(const char *filename)
 	bytes = MapViewOfFile(map, FILE_MAP_READ, 0, 0, 0);
 	if(!bytes)
 		return 0;
+#else
+	f = open(filename, O_RDONLY);
+	if(f == -1)
+		return 0;
+	if(fstat(f, &st) == -1)
+		return 0;
 
+	bytes = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, f, 0);
+	if(!bytes)
+		return 0;
+#endif
 	return rom_init(bytes);
 }
 

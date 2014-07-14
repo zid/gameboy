@@ -516,30 +516,30 @@ static void BIT(unsigned char bit, unsigned char reg)
 	switch(reg)
 	{
 		case 0: /* B */
-		    f = !!(c.B & bit);
+		    f = !(c.B & bit);
 		break;
 		case 1: /* C */
-		    f = !!(c.C & bit);
+		    f = !(c.C & bit);
 		break;
 		case 2: /* D */
-		    f = !!(c.D & bit);
+		    f = !(c.D & bit);
 		break;
 		case 3: /* E */
-		    f = !!(c.E & bit);
+		    f = !(c.E & bit);
 		break;
 		case 4: /* H */
-		    f = !!(c.H & bit);
+		    f = !(c.H & bit);
 		break;
 		case 5: /* L */
-		    f = !!(c.L & bit);
+		    f = !(c.L & bit);
 		break;
 		case 6: /* (HL) */
 			t = mem_get_byte(get_HL());
-			f = !!(t & bit);
+			f = !(t & bit);
 			c.cycles += 1;
 		break;
 		case 7: /* A */
-		    f = !!(c.A & bit);
+		    f = !(c.A & bit);
 		break;
 	}
 
@@ -1690,6 +1690,18 @@ int cpu_cycle(void)
 			c.PC += 1;
 			c.cycles += 1;
 		break;
+		case 0xB4:  /* OR H */
+			c.A |= c.H;
+			c.F = (!c.A)<<7;
+			c.PC += 1;
+			c.cycles += 1;
+		break;
+		case 0xB5:  /* OR L */
+			c.A |= c.L;
+			c.F = (!c.A)<<7;
+			c.PC += 1;
+			c.cycles += 1;
+		break;
 		case 0xB6:  /* OR (HL) */
 			c.A |= mem_get_byte(get_HL());
 			c.F = (!c.A)<<7;
@@ -1914,6 +1926,15 @@ int cpu_cycle(void)
 			c.PC += 1;
 			c.cycles += 3;
 		break;
+		case 0xD2:  /* JP NC, mem16 */
+			if(flag_C == 0)
+			{
+				c.PC = mem_get_word(c.PC+1);
+			} else {
+				c.PC += 3;
+			}
+			c.cycles += 3;
+		break;
 		case 0xD5:  /* PUSH DE */
 			c.SP -= 2;
 			mem_write_word(c.SP, get_DE());
@@ -1940,6 +1961,15 @@ int cpu_cycle(void)
 				c.PC += 1;
 				c.cycles += 1;
 			}
+		break;
+		case 0xDA:  /* JP C, mem16 */
+			if(flag_C)
+			{
+				c.PC = mem_get_word(c.PC+1);
+			} else {
+				c.PC += 3;
+			}
+			c.cycles += 3;
 		break;
 		case 0xD9:  /* RETI */
 			c.PC = mem_get_word(c.SP);

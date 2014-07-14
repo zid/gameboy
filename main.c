@@ -9,7 +9,10 @@ int main(int argc, char *argv[])
 {
 	int r;
 
-	r = rom_load("opcode.gb");
+	if(argc != 2)
+		return 0;
+
+	r = rom_load(argv[1]);
 	if(!r)
 		return 0;
 

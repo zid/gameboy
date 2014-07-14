@@ -43,11 +43,11 @@ unsigned char mem_get_byte(unsigned short i)
 	switch(i)
 	{
 		case 0xFF00:	/* Joypad */
-			if(joypad_select_buttons)
+			if(!joypad_select_buttons)
 				mask |= sdl_get_buttons();
-			if(joypad_select_directions)
+			if(!joypad_select_directions)
 				mask |= sdl_get_directions();
-			return (0xCF ^ mask) | joypad_select_buttons | joypad_select_directions;
+			return (0xFF ^ mask)  ^ (joypad_select_buttons | joypad_select_directions);
 		break;
 		case 0xFF04:
 			return timer_get_div();

@@ -11,6 +11,7 @@
 
 static unsigned char *mem;
 static int DMA_pending = 0;
+static int joypad_select_buttons, joypad_select_directions;
 
 void mem_bank_switch(unsigned int n)
 {
@@ -28,6 +29,7 @@ unsigned char mem_get_raw(unsigned short p)
 unsigned char mem_get_byte(unsigned short i)
 {
 	unsigned long elapsed;
+	unsigned char mask = 0;
 
 	if(DMA_pending && i < 0xFF80)
 	{
@@ -41,7 +43,11 @@ unsigned char mem_get_byte(unsigned short i)
 	switch(i)
 	{
 		case 0xFF00:	/* Joypad */
-			return 0xF;
+			if(joypad_select_buttons)
+				mask |= sdl_get_buttons();
+			if(joypad_select_directions)
+				mask |= sdl_get_directions();
+			return (0xCF ^ mask) | joypad_select_buttons | joypad_select_directions;
 		break;
 		case 0xFF04:
 			return timer_get_div();
@@ -98,6 +104,10 @@ void mem_write_byte(unsigned short d, unsigned char i)
 
 	switch(d)
 	{
+		case 0xFF00:	/* Joypad */
+			joypad_select_buttons = i&0x20;
+			joypad_select_directions = i&0x10;
+		break;
 		case 0xFF01: /* Link port data */
 			fprintf(stderr, "%c", i);
 		break;

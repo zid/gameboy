@@ -67,7 +67,6 @@ static void sort_sprites(struct sprite *s, int n)
 
 static void render_line(int line)
 {
-
 	int i, c = 0, x;
 	unsigned long colours[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000};
 	struct sprite s[10];
@@ -109,26 +108,38 @@ static void render_line(int line)
 		b1 = mem_get_raw(tile_addr+(line%8)*2);
 		b2 = mem_get_raw(tile_addr+(line%8)*2+1);
 		mask = 1<<(7-(x%8));
-		colour = (!!(b1&mask)<<1) | !!(b2&mask);
+		colour = (!!(b1&mask)<<1) | !!(b2&mask);  
 		b[line*640 + x] = colours[colour];
 	}
 
 	for(i = 0; i<c; i++)
 	{
-		for(x = s[i].x; x < s[i].x+8; x++)
+		unsigned int b1, b2, tile_addr, sprite_line;
+
+		/* Sprite is offscreen */
+		if(s[i].x < 0)
+			continue;
+
+		/* Which line of the sprite (0-7) are we rendering */
+		sprite_line = line - s[i].y;
+
+		/* Address of the tile data for this sprite line */
+		tile_addr = 0x8000 + (s[i].tile*16) + sprite_line*2;
+
+		/* The two bytes of data holding the palette entries */
+		b1 = mem_get_raw(tile_addr);
+		b2 = mem_get_raw(tile_addr+1);
+
+		/* For each pixel in the line, draw it */
+		for(x = 0; x < 8; x++)
 		{
-			unsigned int tile_addr, sprite_line, colour;
-			unsigned char b1, b2, bit;
-			if(x < 0)
-				continue;
-			sprite_line = line - s[i].y;
-			tile_addr = 0x8000 + (s[i].tile*16) + sprite_line*2;
-			b1 = mem_get_raw(tile_addr);
-			b2 = mem_get_raw(tile_addr+1);
-			bit = 1<<(x%8);
-			colour = (!!(b1&bit))<<1 | !!(b2&bit);
+			unsigned char mask, colour;
+
+			mask = 128>>x;
+			colour = (!!(b1&mask))<<1 | !!(b2&mask);
+
 			if(colour != 0)
-				b[line*640+x] = colours[colour];
+				b[line*640+(x + s[i].x)] = colours[colour];
 		}
 	}
 }

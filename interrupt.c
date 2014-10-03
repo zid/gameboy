@@ -12,11 +12,11 @@ static unsigned int serial;
 static unsigned int joypad;
 
 /* Interrupt masks */
-static unsigned int vblank_masked;
-static unsigned int lcdstat_masked;
-static unsigned int timer_masked;
-static unsigned int serial_masked;
-static unsigned int joypad_masked;
+static unsigned int vblank_masked = 1;
+static unsigned int lcdstat_masked = 1;
+static unsigned int timer_masked = 1;
+static unsigned int serial_masked = 1;
+static unsigned int joypad_masked = 1;
 
 /* Returns true if the cpu should be unhalted */
 int interrupt_flush(void)
@@ -31,7 +31,12 @@ int interrupt_flush(void)
 	pending = 0;
 
 	/* There's a pending interrupt but interrupts are disabled, just resume the cpu */
-	if(!enabled && (vblank || lcdstat || timer || serial || joypad))
+	if(!enabled && ((vblank && !vblank_masked) 
+		|| (lcdstat && !lcdstat_masked)
+		|| (timer && !timer_masked)
+		|| (serial && !serial_masked) 
+		|| (joypad && !joypad_masked))
+	)
 		return 1;
 
 	/* Interrupts are enabled - Check if any need to fire */

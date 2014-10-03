@@ -37,7 +37,10 @@ unsigned char mem_get_byte(unsigned short i)
 		if(elapsed >= 160)
 			DMA_pending = 0;
 		else
+		{
+			printf("** READ TO MEMORY DURING OAM **\n");
 			return mem[0xFE00+elapsed];
+		}
 	}
 
 	switch(i)
@@ -80,13 +83,17 @@ unsigned char mem_get_byte(unsigned short i)
 unsigned short mem_get_word(unsigned short i)
 {
 	unsigned long elapsed;
+
 	if(DMA_pending && i < 0xFF80)
 	{
 		elapsed = cpu_get_cycles() - DMA_pending;
 		if(elapsed >= 160)
 			DMA_pending = 0;
 		else
+		{
+			printf("** READ TO MEMORY DURING OAM **\n");
 			return mem[0xFE00+elapsed];
+		}
 	}
 	return mem[i] | (mem[i+1]<<8);
 }

@@ -162,6 +162,9 @@ static void render_line(int line)
 		{
 			unsigned char mask, colour;
 
+			if((s[i].x + x) >= 160)
+				continue;
+
 			mask = s[i].flags & HFLIP ? 128>>(7-x) : 128>>x;
 			colour = (!!(b1&mask))<<1 | !!(b2&mask);
 

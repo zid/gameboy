@@ -1436,7 +1436,6 @@ int cpu_cycle(void)
 			halted = 1;
 			c.PC += 1;
 			c.cycles += 1;
-			printf("Halted: IF: %x, IE: %x\n", interrupt_get_IF(), interrupt_get_mask());
 		break;
 		case 0x77:	/* LD (HL), A */
 			mem_write_byte(get_HL(), c.A);

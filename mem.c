@@ -146,6 +146,15 @@ void mem_write_byte(unsigned short d, unsigned char i)
 			memcpy(&mem[0xFE00], &mem[i*0x100], 0xA0);
 			DMA_pending = cpu_get_cycles();
 		break;
+		case 0xFF47:
+			lcd_write_bg_palette(i);
+		break;
+		case 0xFF48:
+			lcd_write_spr_palette1(i);
+		break;
+		case 0xFF49:
+			lcd_write_spr_palette2(i);
+		break;
 		case 0xFFFF:
 			interrupt_set_mask(i);
 			return;

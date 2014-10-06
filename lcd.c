@@ -17,14 +17,44 @@ static int sprites_enabled;
 static int bg_enabled;
 static int scroll_x, scroll_y;
 
+static int bgpalette[] = {3, 2, 1, 0};
+static int sprpalette1[] = {0, 1, 2, 3};
+static int sprpalette2[] = {0, 1, 2, 3};
+static unsigned long colours[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000};
+
 struct sprite {
 	int y, x, tile, flags;
 };
 
 enum {
 	VFLIP = 0x40,
-	HFLIP = 0x20
+	HFLIP = 0x20,
+	PNUM  = 0x10
 };
+
+void lcd_write_bg_palette(unsigned char n)
+{
+	bgpalette[0] = (n>>0)&3;
+	bgpalette[1] = (n>>2)&3;
+	bgpalette[2] = (n>>4)&3;
+	bgpalette[3] = (n>>6)&3;
+}
+
+void lcd_write_spr_palette1(unsigned char n)
+{
+	sprpalette1[0] = 0;
+	sprpalette1[1] = (n>>2)&3;
+	sprpalette1[2] = (n>>4)&3;
+	sprpalette1[3] = (n>>6)&3;
+}
+
+void lcd_write_spr_palette2(unsigned char n)
+{
+	sprpalette2[0] = 0;
+	sprpalette2[1] = (n>>2)&3;
+	sprpalette2[2] = (n>>4)&3;
+	sprpalette2[3] = (n>>6)&3;
+}
 
 void lcd_write_scroll_x(unsigned char n)
 {
@@ -84,7 +114,7 @@ static void sort_sprites(struct sprite *s, int n)
 static void render_line(int line)
 {
 	int i, c = 0, x;
-	unsigned long colours[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000};
+
 	struct sprite s[10];
 	unsigned int *b = sdl_get_framebuffer();
 
@@ -134,9 +164,9 @@ static void render_line(int line)
 
 		b1 = mem_get_raw(tile_addr+(ym%8)*2);
 		b2 = mem_get_raw(tile_addr+(ym%8)*2+1);
-		mask = 1<<(7-(xm%8));
-		colour = (!!(b1&mask)<<1) | !!(b2&mask);  
-		b[line*640 + x] = colours[colour];
+		mask = 128>>(xm%8);
+		colour = (!!(b2&mask)<<1) | !!(b1&mask);
+		b[line*640 + x] = colours[bgpalette[colour]];
 	}
 
 	for(i = 0; i<c; i++)
@@ -166,10 +196,13 @@ static void render_line(int line)
 				continue;
 
 			mask = s[i].flags & HFLIP ? 128>>(7-x) : 128>>x;
-			colour = (!!(b1&mask))<<1 | !!(b2&mask);
-
+			colour = ((!!(b2&mask))<<1) | !!(b1&mask);
 			if(colour != 0)
-				b[line*640+(x + s[i].x)] = colours[colour];
+			{
+				int *pal;
+				pal = (s[i].flags & PNUM) ? sprpalette2 : sprpalette1;
+				b[line*640+(x + s[i].x)] = colours[pal[colour]];
+			}
 		}
 	}
 }
@@ -178,7 +211,6 @@ static void draw_stuff(void)
 {
 	unsigned int *b = sdl_get_framebuffer();
 	int y, tx, ty;
-	unsigned int colours[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x0};
 
 	for(ty = 0; ty < 24; ty++)
 	{

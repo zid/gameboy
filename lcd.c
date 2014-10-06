@@ -177,7 +177,7 @@ static void render_line(int line)
 static void draw_stuff(void)
 {
 	unsigned int *b = sdl_get_framebuffer();
-	int x, y, tx, ty;
+	int y, tx, ty;
 	unsigned int colours[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x0};
 
 	for(ty = 0; ty < 24; ty++)

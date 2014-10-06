@@ -6,8 +6,8 @@
 #include "mbc.h"
 #include "interrupt.h"
 #include "timer.h"
-
-#include <stdio.h> /* For serial logging */
+#include "sdl.h"
+#include "cpu.h"
 
 static unsigned char *mem;
 static int DMA_pending = 0;
@@ -38,7 +38,6 @@ unsigned char mem_get_byte(unsigned short i)
 			DMA_pending = 0;
 		else
 		{
-			printf("** READ TO MEMORY DURING OAM **\n");
 			return mem[0xFE00+elapsed];
 		}
 	}
@@ -91,7 +90,6 @@ unsigned short mem_get_word(unsigned short i)
 			DMA_pending = 0;
 		else
 		{
-			printf("** READ TO MEMORY DURING OAM **\n");
 			return mem[0xFE00+elapsed];
 		}
 	}
@@ -116,7 +114,7 @@ void mem_write_byte(unsigned short d, unsigned char i)
 			joypad_select_directions = i&0x10;
 		break;
 		case 0xFF01: /* Link port data */
-			fprintf(stderr, "%c", i);
+//			fprintf(stderr, "%c", i);
 		break;
 		case 0xFF04:
 			timer_set_div(i);

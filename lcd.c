@@ -15,10 +15,21 @@ static int bg_tiledata_select;
 static int sprite_size;
 static int sprites_enabled;
 static int bg_enabled;
+static int scroll_x, scroll_y;
 
 struct sprite {
 	int y, x, tile, flags;
 };
+
+void lcd_write_scroll_x(unsigned char n)
+{
+	scroll_x = n;
+}
+
+void lcd_write_scroll_y(unsigned char n)
+{
+	scroll_y = n;
+}
 
 int lcd_get_line(void)
 {
@@ -95,19 +106,30 @@ static void render_line(int line)
 
 	for(x = 0; x < 160; x++)
 	{
-		unsigned int map_offset, tile_num, tile_addr;
+		unsigned int map_offset, tile_num, tile_addr, xm, ym;
 		unsigned char b1, b2, mask, colour;
 
-		map_offset = (line/8)*32 + x/8;
+		/* Convert LCD x,y into full 256*256 style internal coords */
+		xm = (x + scroll_x)%256;
+		ym = (line + scroll_y)%256;
+
+		/* Which pixel is this tile on? Find its offset. */
+		/* (y/8)*32 calculates the offset of the row the y coordinate is on.
+		 * As 256/32 is 8, divide by 8 to map one to the other, this is the row number.
+		 * Then multiply the row number by the width of a row, 32, to find the offset.
+		 * Finally, add x/(256/32) to find the offset within that row. 
+		 */
+		map_offset = (ym/8)*32 + xm/8;
+
 		tile_num = mem_get_raw(0x9800 + tilemap_select*0x400 + map_offset);
 		if(bg_tiledata_select)
 			tile_addr = 0x8000 + tile_num*16;
 		else
 			tile_addr = 0x9000 + ((signed char)tile_num)*16;
 
-		b1 = mem_get_raw(tile_addr+(line%8)*2);
-		b2 = mem_get_raw(tile_addr+(line%8)*2+1);
-		mask = 1<<(7-(x%8));
+		b1 = mem_get_raw(tile_addr+(ym%8)*2);
+		b2 = mem_get_raw(tile_addr+(ym%8)*2+1);
+		mask = 1<<(7-(xm%8));
 		colour = (!!(b1&mask)<<1) | !!(b2&mask);  
 		b[line*640 + x] = colours[colour];
 	}

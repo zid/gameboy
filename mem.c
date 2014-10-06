@@ -137,6 +137,12 @@ void mem_write_byte(unsigned short d, unsigned char i)
 		case 0xFF40:
 			lcd_write_control(i);
 		break;
+		case 0xFF42:
+			lcd_write_scroll_y(i);
+		break;
+		case 0xFF43:
+			lcd_write_scroll_x(i);
+		break;
 		case 0xFF46: /* OAM DMA */
 			/* Copy bytes from i*0x100 to OAM */
 			memcpy(&mem[0xFE00], &mem[i*0x100], 0xA0);

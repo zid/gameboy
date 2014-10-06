@@ -21,6 +21,11 @@ struct sprite {
 	int y, x, tile, flags;
 };
 
+enum {
+	VFLIP = 0x40,
+	HFLIP = 0x20
+};
+
 void lcd_write_scroll_x(unsigned char n)
 {
 	scroll_x = n;
@@ -88,7 +93,7 @@ static void render_line(int line)
 		int y;
 
 		y = mem_get_raw(0xFE00 + (i*4)) - 16;
-		if(line < y || line >= y+8)
+		if(line < y || line >= y + 8+(sprite_size*8))
 			continue;
 
 		s[c].y     = y;
@@ -143,7 +148,7 @@ static void render_line(int line)
 			continue;
 
 		/* Which line of the sprite (0-7) are we rendering */
-		sprite_line = line - s[i].y;
+		sprite_line = s[i].flags & VFLIP ? (sprite_size ? 15 : 7)-(line - s[i].y) : line - s[i].y;
 
 		/* Address of the tile data for this sprite line */
 		tile_addr = 0x8000 + (s[i].tile*16) + sprite_line*2;
@@ -157,7 +162,7 @@ static void render_line(int line)
 		{
 			unsigned char mask, colour;
 
-			mask = 128>>x;
+			mask = s[i].flags & HFLIP ? 128>>(7-x) : 128>>x;
 			colour = (!!(b1&mask))<<1 | !!(b2&mask);
 
 			if(colour != 0)
@@ -171,38 +176,6 @@ static void draw_stuff(void)
 	unsigned int *b = sdl_get_framebuffer();
 	int x, y, tx, ty;
 	unsigned int colours[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x0};
-/*
-	for(ty = 0; ty < 18; ty++)
-	{
-	for(tx = 0; tx < 20; tx++)
-	{
-		unsigned int tile_num, tileaddr;
-
-		tile_num = mem_get_raw(0x9800 + tilemap_select*0x400 + ty*32+tx);
-		if(!bg_tiledata_select)
-			tileaddr = 0x9000 + ((signed char)tile_num)*16;
-		else
-			tileaddr = 0x8000 + tile_num*16;
-
-	for(y = 0; y<8; y++)
-	{
-
-		unsigned char b1, b2;
-
-		b1 = mem_get_raw(tileaddr+y*2);
-		b2 = mem_get_raw(tileaddr+y*2+1);
-		b[(ty*640*8)+(tx*8) + (y*640) + 0] = colours[(!!(b1&0x80))<<1 | !!(b2&0x80)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 1] = colours[(!!(b1&0x40))<<1 | !!(b2&0x40)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 2] = colours[(!!(b1&0x20))<<1 | !!(b2&0x20)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 3] = colours[(!!(b1&0x10))<<1 | !!(b2&0x10)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 4] = colours[(!!(b1&0x8))<<1 | !!(b2&0x8)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 5] = colours[(!!(b1&0x4))<<1 | !!(b2&0x4)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 6] = colours[(!!(b1&0x2))<<1 | !!(b2&0x2)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 7] = colours[(!!(b1&0x1))<<1 | !!(b2&0x1)];
-	}
-	}
-	}
-*/
 
 	for(ty = 0; ty < 24; ty++)
 	{

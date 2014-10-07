@@ -16,6 +16,7 @@ static int sprite_size;
 static int sprites_enabled;
 static int bg_enabled;
 static int scroll_x, scroll_y;
+static int window_x, window_y;
 
 static int bgpalette[] = {3, 2, 1, 0};
 static int sprpalette1[] = {0, 1, 2, 3};
@@ -83,6 +84,14 @@ void lcd_write_control(unsigned char c)
 	lcd_enabled           = !!(c & 0x80);
 }
 
+void lcd_set_window_y(unsigned char n) {
+	window_y = n;
+}
+
+void lcd_set_window_x(unsigned char n) {
+	window_x = n;
+}
+
 static void swap(struct sprite *a, struct sprite *b)
 {
 	struct sprite c;
@@ -139,14 +148,24 @@ static void render_line(int line)
 	if(c)
 		sort_sprites(s, c);
 
+	/* Draw the background layer */
 	for(x = 0; x < 160; x++)
 	{
-		unsigned int map_offset, tile_num, tile_addr, xm, ym;
+		unsigned int map_select, map_offset, tile_num, tile_addr, xm, ym;
 		unsigned char b1, b2, mask, colour;
 
 		/* Convert LCD x,y into full 256*256 style internal coords */
-		xm = (x + scroll_x)%256;
-		ym = (line + scroll_y)%256;
+		if(line >= window_y && window_enabled && line - window_y < 144)
+		{
+			xm = x;
+			ym = line - window_y;
+			map_select = window_tilemap_select;
+		}
+		else {
+			xm = (x + scroll_x)%256;
+			ym = (line + scroll_y)%256;
+			map_select = tilemap_select;
+		}
 
 		/* Which pixel is this tile on? Find its offset. */
 		/* (y/8)*32 calculates the offset of the row the y coordinate is on.
@@ -156,7 +175,7 @@ static void render_line(int line)
 		 */
 		map_offset = (ym/8)*32 + xm/8;
 
-		tile_num = mem_get_raw(0x9800 + tilemap_select*0x400 + map_offset);
+		tile_num = mem_get_raw(0x9800 + map_select*0x400 + map_offset);
 		if(bg_tiledata_select)
 			tile_addr = 0x8000 + tile_num*16;
 		else
@@ -261,3 +280,4 @@ int lcd_cycle(void)
 	prev_line = lcd_line;
 	return 1;
 }
+

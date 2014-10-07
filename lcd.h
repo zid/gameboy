@@ -8,4 +8,6 @@ void lcd_write_scroll_y(unsigned char);
 void lcd_write_bg_palette(unsigned char);
 void lcd_write_spr_palette1(unsigned char);
 void lcd_write_spr_palette2(unsigned char);
+void lcd_set_window_y(unsigned char);
+void lcd_set_window_x(unsigned char);
 #endif

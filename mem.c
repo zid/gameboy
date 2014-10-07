@@ -155,6 +155,10 @@ void mem_write_byte(unsigned short d, unsigned char i)
 		case 0xFF49:
 			lcd_write_spr_palette2(i);
 		break;
+		case 0xFF4A:
+			lcd_set_window_y(i); break;
+		case 0xFF4B:
+			lcd_set_window_x(i); break;
 		case 0xFFFF:
 			interrupt_set_mask(i);
 			return;

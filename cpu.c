@@ -1013,7 +1013,7 @@ int cpu_cycle(void)
 		break;
 		case 0x2B: 	/* DEC HL */
 			set_HL(get_HL()-1);
-			c.PC += 2;
+			c.PC += 1;
 			c.cycles += 2;
 		break;
 		case 0x2C:	/* INC L */

@@ -1,3 +1,10 @@
 *~
 *.swp
 gameboy
+*.gb
+*.txt
+*.exe
+*.sav
+*.ini
+*.o
+*.diff

@@ -13,37 +13,35 @@ unsigned char *bytes;
 unsigned int mapper;
 
 static char *carts[] = {
-	"ROM ONLY",
-	"MBC1",
-	"MBC1+RAM",
-	"MBC1+RAM+BATTERY",
-	"MBC2",
-	"MBC2+BATTERY",
-	"ROM+RAM",
-	"ROM+RAM+BATTERY",
-	"MMM01",
-	"MMM01+RAM",
-	"MMM01+RAM+BATTERY",
-	"MBC3+TIMER+BATTERY",
-	"MBC3+TIMER+RAM+BATTERY",
-	"MBC3",
-	"MBC3+RAM",
-	"MBC3+RAM+BATTERY",
-	"MBC4",
-	"MBC4+RAM",
-	"MBC4+RAM+BATTERY",
-	"MBC5",
-	"MBC5+RAM",
-	"MBC5+RAM+BATTERY",
-	"MBC5+RUMBLE",
-	"MBC5+RUMBLE+RAM",
-	"MBC5+RUMBLE+RAM+BATTERY",
-	/* 0xFC */
-	"POCKET CAMERA",
-	"BANDAI TAMA5",
-	"HuC3",
-	"HuC1+RAM+BATTERY",
-	"Unknown"
+	[0x00] = "ROM ONLY",
+	[0x01] = "MBC1",
+	[0x02] = "MBC1+RAM",
+	[0x03] = "MBC1+RAM+BATTERY",
+	[0x05] = "MBC2",
+	[0x06] = "MBC2+BATTERY",
+	[0x08] = "ROM+RAM",
+	[0x09] = "ROM+RAM+BATTERY",
+	[0x0B] = "MMM01",
+	[0x0C] = "MMM01+RAM",
+	[0x0D] = "MMM01+RAM+BATTERY",
+	[0x0F] = "MBC3+TIMER+BATTERY",
+	[0x10] = "MBC3+TIMER+RAM+BATTERY",
+	[0x11] = "MBC3",
+	[0x12] = "MBC3+RAM",
+	[0x13] = "MBC3+RAM+BATTERY",
+	[0x15] = "MBC4",
+	[0x16] = "MBC4+RAM",
+	[0x17] = "MBC4+RAM+BATTERY",
+	[0x19] = "MBC5",
+	[0x1A] = "MBC5+RAM",
+	[0x1B] = "MBC5+RAM+BATTERY",
+	[0x1C] = "MBC5+RUMBLE",
+	[0x1D] = "MBC5+RUMBLE+RAM",
+	[0x1E] = "MBC5+RUMBLE+RAM+BATTERY",
+	[0xFC] = "POCKET CAMERA",
+	[0xFD] = "BANDAI TAMA5",
+	[0xFE] = "HuC3",
+	[0xFF] = "HuC1+RAM+BATTERY",
 };
 
 static char *banks[] = {
@@ -100,16 +98,7 @@ static int rom_init(unsigned char *rombytes)
 
 	type = rombytes[0x147];
 
-	/* There's a gap in the cartridge table between 0x1E and 0xFC
-	 * but the array does not have this gap to save space. Adjust
-	 * the type number so that it aligns to the array.
-	 */
-	if(type >= 0xFC)
-		type = type - 227;
-	else if(type > 0x1E)
-		type = 29;
-
-	printf("Cartridge type: %s\n", carts[type]);
+	printf("Cartridge type: %s (%02X)\n", carts[type], type);
 
 	bank_index = rombytes[0x148];
 	/* Adjust for the gap in the bank indicies */

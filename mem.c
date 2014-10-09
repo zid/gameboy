@@ -102,10 +102,21 @@ void mem_write_byte(unsigned short d, unsigned char i)
 
 	switch(rom_get_mapper())
 	{
+		case NROM:
+			if(d < 0x8000)
+				filtered = 1;
+		break;
+		case MBC2:
+		case MBC3:
+			filtered = MBC3_write_byte(d, i);
+		break;
 		case MBC1:
 			filtered = MBC1_write_byte(d, i);
 		break;
 	}
+
+	if(filtered)
+		return;
 
 	switch(d)
 	{
@@ -165,8 +176,7 @@ void mem_write_byte(unsigned short d, unsigned char i)
 		break;
 	}
 
-	if(!filtered)
-		mem[d] = i;
+	mem[d] = i;
 }
 
 void mem_write_word(unsigned short d, unsigned short i)

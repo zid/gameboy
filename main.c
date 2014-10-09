@@ -9,9 +9,12 @@
 int main(int argc, char *argv[])
 {
 	int r;
+	const char usage[] = "Usage: %s <rom>\n";
 
-	if(argc != 2)
+	if(argc != 2) {
+		fprintf(stderr, usage, argv[0]);
 		return 0;
+	}
 
 	r = rom_load(argv[1]);
 	if(!r)

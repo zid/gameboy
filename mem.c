@@ -124,6 +124,9 @@ void mem_write_byte(unsigned short d, unsigned char i)
 		case MBC1:
 			filtered = MBC1_write_byte(d, i);
 		break;
+		case MBC5:
+			filtered = MBC5_write_byte(d, i);
+		break;
 	}
 
 	if(filtered)

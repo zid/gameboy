@@ -65,6 +65,7 @@ static char *rams[] = {
 	"  2KiB",
 	"  8KiB",
 	" 32KiB",
+	"128KiB"
 	"Unknown"
 };
 static int *rams_sizes[] = {
@@ -72,7 +73,8 @@ static int *rams_sizes[] = {
 	2000,
 	8000,
 	32000,
-	32000
+	128000,
+	128000
 };
 
 
@@ -117,8 +119,11 @@ static int rom_init(unsigned char *rombytes)
 	buf[16] = '\0';
 	printf("Rom title: %s\n", buf);
 
-	type = rombytes[0x147];
 
+	printf("%s\n", (rombytes[0x143] == 0x80) ? "GBC" : ((rombytes[0x146] == 0) ? "GB" : "?" ));
+
+	type = rombytes[0x147];
+	
 	printf("Cartridge type: %s (%02X)\n", carts[type], type);
 
 	if (type == 0x03 || type == 0x06 || type == 0x09 || type == 0x0D || type == 0x0F || type == 0x10 || type == 0x13 || type == 0x17 || type == 0x1B || type == 0x1E || type == 0xFF)
@@ -136,8 +141,8 @@ static int rom_init(unsigned char *rombytes)
 	printf("Rom size: %s\n", banks[bank_index]);
 
 	ram = rombytes[0x149];
-	if(ram > 3)
-		ram = 4;
+	if(ram > 4)
+		ram = 5;
 
 	printf("RAM size: %s\n", rams[ram]);
 	ram_size = rams_sizes[ram];

@@ -139,13 +139,16 @@ unsigned int MBC3_write_byte(unsigned short d, unsigned char i)
 		}
 		else if (i >= 0x08 && i <= 0x0C) //map the corresponding RTC register into memory at A000 - BFFF
 		{
-			printf("RTC register : %d\n", i); // TODO : RTC
+			printf("RTC register select : %d\n", i); // TODO : RTC
 		}
 
 		return FILTER_WRITE;
 	}
-	if(d < 0x8000)
+	if (d < 0x8000)
+	{
+		printf("Latch clock data : %d\n", i);
 		return FILTER_WRITE; // TODO : RTC
+	}
 
 	if (d >= 0xA000 && d < 0xBFFF && ram_enabled)
 	{
@@ -156,6 +159,55 @@ unsigned int MBC3_write_byte(unsigned short d, unsigned char i)
 
 	return NO_FILTER_WRITE;
 }
+
+unsigned int MBC5_write_byte(unsigned short d, unsigned char i)
+{
+	int bank;
+
+	if (d < 0x2000)
+	{
+		if ((i & 0xFF) == 0x0A)
+		{
+			ram_enabled = 0xFF;
+		}
+		else if ((i & 0xFF) == 0x00)
+		{
+			ram_enabled = 0x00;
+		}
+		return FILTER_WRITE;
+	}
+
+	if (d < 0x3000)
+	{
+		bank = i | bank_upper_bits;
+		mem_bank_switch(bank);
+
+		return FILTER_WRITE;
+	}
+	if (d < 0x4000)
+	{
+		bank_upper_bits = (d & 0x01) << 9;
+		return FILTER_WRITE;
+	}
+	if (d < 0x6000)
+	{
+
+		//maps the corresponding external RAM Bank (if any) into memory at A000-BFFF
+		current_ram_bank = (i & 0x0F);
+		
+		return FILTER_WRITE;
+	}
+	
+	if (d >= 0xA000 && d < 0xBFFF && ram_enabled)
+	{
+		ram[current_ram_bank * 0x2000 + d - 0xA000] = i;
+
+		return FILTER_WRITE;
+	}
+
+	return NO_FILTER_WRITE;
+}
+
 unsigned int MBC1_write_byte(unsigned short d, unsigned char i)
 {
 	int bank;

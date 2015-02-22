@@ -16,10 +16,51 @@ enum {
 	FILTER_WRITE
 };
 
+static int rams_sizes[] = {
+	0,
+	2000,
+	8000,
+	32000,
+	128000
+};
+static char has_battery[] = {
+	[0x00] = 0,
+	[0x01] = 0,
+	[0x02] = 0,
+	[0x03] = 1,
+	[0x05] = 0,
+	[0x06] = 1,
+	[0x08] = 0,
+	[0x09] = 1,
+	[0x0B] = 0,
+	[0x0C] = 0,
+	[0x0D] = 1,
+	[0x0F] = 1,
+	[0x10] = 1,
+	[0x11] = 0,
+	[0x12] = 0,
+	[0x13] = 1,
+	[0x15] = 0,
+	[0x16] = 0,
+	[0x17] = 1,
+	[0x19] = 0,
+	[0x1A] = 0,
+	[0x1B] = 1,
+	[0x1C] = 0,
+	[0x1D] = 0,
+	[0x1E] = 1,
+	[0xFC] = 0,
+	[0xFD] = 0,
+	[0xFE] = 0,
+	[0xFF] = 1
+};
+
+
 static unsigned int bank_upper_bits;
 static unsigned int ram_select;
 static unsigned int ram_enabled;
 static unsigned char current_ram_bank;
+static int sram_size;
 
 static unsigned char *sram;
 
@@ -36,13 +77,20 @@ int FileExists(LPCTSTR szPath)
 
 void mbc_sram_init(const char* filename)
 {
+	int type, ram;
+	type = rom_getbytes()[0x147];
+	ram = rom_getbytes()[0x149];
+	if (ram > 3)
+		ram = 4;
 
-	if (!get_sram_size()) return;
-	sram = calloc(1, get_sram_size());
+	sram_size = rams_sizes[ram];
+
+	if (!sram_size) return;
+	sram = calloc(1,sram_size);
 	current_ram_bank = 0;
 	ram_select = 0;
 
-	if (!has_battery()) return;
+	if (!has_battery[type]) return;
 #ifdef _WIN32
 	HANDLE f, map;
 
@@ -70,7 +118,7 @@ void mbc_sram_init(const char* filename)
 			return;
 		}
 
-		WriteFile(f, sram, get_sram_size(), NULL, NULL);
+		WriteFile(f, sram, sram_size, NULL, NULL);
 	}
 
 
@@ -92,7 +140,7 @@ void mbc_sram_init(const char* filename)
 
 unsigned char mbc_get_byte(unsigned short d) // Read external RAM if any
 {
-	if (get_sram_size() && ram_enabled)
+	if (sram_size && ram_enabled)
 	{
 		return sram[current_ram_bank * 0x2000 + d - 0xA000];
 	}

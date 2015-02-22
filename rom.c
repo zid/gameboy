@@ -44,37 +44,6 @@ static char *carts[] = {
 	[0xFF] = "HuC1+RAM+BATTERY",
 };
 
-static char carts_has_battery[] = {
-	[0x00] = 0,
-	[0x01] = 0,
-	[0x02] = 0,
-	[0x03] = 1,
-	[0x05] = 0,
-	[0x06] = 1,
-	[0x08] = 0,
-	[0x09] = 1,
-	[0x0B] = 0,
-	[0x0C] = 0,
-	[0x0D] = 1,
-	[0x0F] = 1,
-	[0x10] = 1,
-	[0x11] = 0,
-	[0x12] = 0,
-	[0x13] = 1,
-	[0x15] = 0,
-	[0x16] = 0,
-	[0x17] = 1,
-	[0x19] = 0,
-	[0x1A] = 0,
-	[0x1B] = 1,
-	[0x1C] = 0,
-	[0x1D] = 0,
-	[0x1E] = 1,
-	[0xFC] = 0,
-	[0xFD] = 0,
-	[0xFE] = 0,
-	[0xFF] = 1
-};
 
 static char *banks[] = {
 	" 32KiB",
@@ -101,14 +70,6 @@ static char *rams[] = {
 	"Unknown"
 };
 
-static int *rams_sizes[] = {
-	0,
-	2000,
-	8000,
-	32000,
-	128000,
-	128000
-};
 
 static char *regions[] = {
 	"Japan",
@@ -125,18 +86,6 @@ static unsigned char header[] = {
 	0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E
 };
 
-static int battery;
-static int sram_size;
-
-int has_battery()
-{
-	return battery;
-}
-
-int get_sram_size()
-{
-	return sram_size;
-}
 
 static int rom_init(unsigned char *rombytes)
 {
@@ -154,8 +103,7 @@ static int rom_init(unsigned char *rombytes)
 	type = rombytes[0x147];
 	
 	printf("Cartridge type: %s (%02X)\n", carts[type], type);
-	battery = carts_has_battery[type];
-
+	
 	bank_index = rombytes[0x148];
 	/* Adjust for the gap in the bank indicies */
 	if(bank_index >= 0x52 && bank_index <= 0x54)
@@ -170,8 +118,7 @@ static int rom_init(unsigned char *rombytes)
 		ram = 5;
 
 	printf("RAM size: %s\n", rams[ram]);
-	sram_size = rams_sizes[ram];
-
+	
 	region = rombytes[0x14A];
 	if(region > 2)
 		region = 2;

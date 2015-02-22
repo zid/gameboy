@@ -1,4 +1,4 @@
-#include <SDL/SDL.h>
+#include <SDL.h>
 
 static SDL_Surface *screen;
 

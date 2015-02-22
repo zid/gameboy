@@ -76,6 +76,12 @@ unsigned char mem_get_byte(unsigned short i)
 			return interrupt_get_mask();
 		break;
 	}
+	
+	if (i >= 0xA000 && i < 0xC000) // Read external RAM if any
+	{
+		return mbc_get_byte(i);
+	}
+
 	return mem[i];
 }
 
@@ -93,6 +99,11 @@ unsigned short mem_get_word(unsigned short i)
 			return mem[0xFE00+elapsed];
 		}
 	}
+	if (i >= 0xA000 && i < 0xC000) // Read external RAM if any
+	{
+		return mbc_get_byte(i) | (mbc_get_byte(i + 1) << 8);
+	}
+
 	return mem[i] | (mem[i+1]<<8);
 }
 

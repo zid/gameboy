@@ -67,6 +67,14 @@ static char *rams[] = {
 	" 32KiB",
 	"Unknown"
 };
+static int *rams_sizes[] = {
+	0,
+	2000,
+	8000,
+	32000,
+	32000
+};
+
 
 static char *regions[] = {
 	"Japan",
@@ -82,6 +90,19 @@ static unsigned char header[] = {
 	0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC,
 	0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E
 };
+
+int ram_size;
+int battery;
+
+int get_ram_size()
+{
+	return ram_size;
+}
+
+int has_battery()
+{
+	return battery;
+}
 
 static int rom_init(unsigned char *rombytes)
 {
@@ -100,6 +121,11 @@ static int rom_init(unsigned char *rombytes)
 
 	printf("Cartridge type: %s (%02X)\n", carts[type], type);
 
+	if (type == 0x03 || type == 0x06 || type == 0x09 || type == 0x0D || type == 0x0F || type == 0x10 || type == 0x13 || type == 0x17 || type == 0x1B || type == 0x1E || type == 0xFF)
+		battery = 1;
+	else
+		battery = 0;
+
 	bank_index = rombytes[0x148];
 	/* Adjust for the gap in the bank indicies */
 	if(bank_index >= 0x52 && bank_index <= 0x54)
@@ -114,6 +140,7 @@ static int rom_init(unsigned char *rombytes)
 		ram = 4;
 
 	printf("RAM size: %s\n", rams[ram]);
+	ram_size = rams_sizes[ram];
 
 	region = rombytes[0x14A];
 	if(region > 2)
@@ -175,7 +202,7 @@ static int rom_init(unsigned char *rombytes)
 			mapper = MBC5;
 		break;
 	}
-
+	
 	return 1;
 }
 
@@ -220,6 +247,7 @@ int rom_load(const char *filename)
 	if(!bytes)
 		return 0;
 #endif
+
 	return rom_init(bytes);
 }
 

@@ -25,9 +25,9 @@ int main(int argc, char *argv[])
 
 	printf("ROM OK!\n");
 
-	external_ram_init(argv[1]);
-	puts("External RAM OK!");
-
+	mbc_sram_init(argv[1]);
+	puts("SRAM OK!");
+	
 	mem_init();
 	printf("Mem OK!\n");
 

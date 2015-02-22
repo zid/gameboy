@@ -21,7 +21,8 @@ static unsigned int ram_select;
 static unsigned int ram_enabled;
 static unsigned char current_ram_bank;
 
-unsigned char *ram;
+static unsigned char *sram;
+
 
 #ifdef _WIN32
 BOOL FileExists(LPCTSTR szPath)
@@ -33,69 +34,67 @@ BOOL FileExists(LPCTSTR szPath)
 }
 #endif
 
-void external_ram_init(const char* filename)
+void mbc_sram_init(const char* filename)
 {
-	if (get_ram_size() != 0)
-	{
-		ram = calloc(1, get_ram_size());
-		current_ram_bank = 0;
-		ram_select = 0;
 
-		if (has_battery())
-		{
+	if (!get_sram_size()) return;
+	sram = calloc(1, get_sram_size());
+	current_ram_bank = 0;
+	ram_select = 0;
+
+	if (!has_battery()) return;
 #ifdef _WIN32
-			HANDLE f, map;
+	HANDLE f, map;
 
-			char sav[100];
-			strcpy(sav, filename);
-			strcat(sav, ".sav");
+	char sav[100];
+	strcpy(sav, filename);
+	strcat(sav, ".sav");
 
-			if (FileExists(sav))
-			{
+	if (FileExists(sav))
+	{
 
-				f = CreateFile(sav, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		f = CreateFile(sav, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
-				if (f == INVALID_HANDLE_VALUE)
-				{
-					return;
-				}
+		if (f == INVALID_HANDLE_VALUE)
+		{
+			return;
+		}
 
-			}
-			else
-			{
-				f = CreateFile(sav, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	}
+	else
+	{
+		f = CreateFile(sav, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
-				if (f == INVALID_HANDLE_VALUE)
-				{
-					return;
-				}
+		if (f == INVALID_HANDLE_VALUE)
+		{
+			return;
+		}
 
-				WriteFile(f, ram, get_ram_size(), NULL, NULL);
-			}
+		WriteFile(f, sram, get_sram_size(), NULL, NULL);
+	}
 
 
-			map = CreateFileMapping(f, NULL, PAGE_READWRITE, 0, 0, NULL);
-			if (!map)
-			{
-				return;
-			}
+	map = CreateFileMapping(f, NULL, PAGE_READWRITE, 0, 0, NULL);
+	if (!map)
+	{
+		return;
+	}
 
-			ram = MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, 0);
-			if (!ram)
-			{
-				return;
-			}
+	sram = MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, 0);
+	if (!sram)
+	{
+		return;
+	}
 
 #endif
-		}
-	}
+
 }
 
 unsigned char mbc_get_byte(unsigned short d) // Read external RAM if any
 {
-	if (get_ram_size() != 0 && ram_enabled)
+	if (get_sram_size() && ram_enabled)
 	{
-		return ram[current_ram_bank * 0x2000 + d - 0xA000];
+		return sram[current_ram_bank * 0x2000 + d - 0xA000];
 	}
 	else
 		return 0;
@@ -106,7 +105,7 @@ unsigned int MBC3_write_byte(unsigned short d, unsigned char i)
 {
 	int bank;
 
-	if(d < 0x2000)
+	if (d < 0x2000)
 	{
 		if ((i & 0xFF) == 0x0A)
 		{
@@ -119,11 +118,11 @@ unsigned int MBC3_write_byte(unsigned short d, unsigned char i)
 		return FILTER_WRITE;
 	}
 
-	if(d < 0x4000)
+	if (d < 0x4000)
 	{
 		bank = i & 0x7F;
 
-		if(bank == 0)
+		if (bank == 0)
 			bank++;
 
 		mem_bank_switch(bank);
@@ -152,7 +151,7 @@ unsigned int MBC3_write_byte(unsigned short d, unsigned char i)
 
 	if (d >= 0xA000 && d < 0xBFFF && ram_enabled)
 	{
-		ram[current_ram_bank * 0x2000 + d - 0xA000] = i;
+		sram[current_ram_bank * 0x2000 + d - 0xA000] = i;
 
 		return FILTER_WRITE;
 	}
@@ -194,13 +193,13 @@ unsigned int MBC5_write_byte(unsigned short d, unsigned char i)
 
 		//maps the corresponding external RAM Bank (if any) into memory at A000-BFFF
 		current_ram_bank = (i & 0x0F);
-		
+
 		return FILTER_WRITE;
 	}
-	
+
 	if (d >= 0xA000 && d < 0xBFFF && ram_enabled)
 	{
-		ram[current_ram_bank * 0x2000 + d - 0xA000] = i;
+		sram[current_ram_bank * 0x2000 + d - 0xA000] = i;
 
 		return FILTER_WRITE;
 	}
@@ -212,7 +211,7 @@ unsigned int MBC1_write_byte(unsigned short d, unsigned char i)
 {
 	int bank;
 
-	if(d < 0x2000)
+	if (d < 0x2000)
 	{
 		if ((i & 0xFF) == 0x00)
 			ram_enabled = 0x00;
@@ -223,14 +222,14 @@ unsigned int MBC1_write_byte(unsigned short d, unsigned char i)
 	}
 
 	/* Switch rom bank at 4000-7fff */
-	if(d >= 0x2000 && d < 0x4000)
+	if (d >= 0x2000 && d < 0x4000)
 	{
 		/* Bits 0-4 come from the value written to memory here,
 		 * bits 5-6 come from a seperate write to 4000-5fff if
 		 * RAM select is 1.
 		 */
 		bank = i & 0x1F;
-		if(!ram_select)
+		if (!ram_select)
 			bank |= bank_upper_bits;
 
 		/* "Writing to this address space selects the lower 5 bits of the
@@ -239,7 +238,7 @@ unsigned int MBC1_write_byte(unsigned short d, unsigned char i)
 		 * http://nocash.emubase.de/pandocs.htm#mbc1max2mbyteromandor32kbyteram
 		 */
 
-		if(bank == 0 || bank == 0x20 || bank == 0x40 || bank == 0x60)
+		if (bank == 0 || bank == 0x20 || bank == 0x40 || bank == 0x60)
 			bank++;
 
 		mem_bank_switch(bank);
@@ -248,7 +247,7 @@ unsigned int MBC1_write_byte(unsigned short d, unsigned char i)
 	}
 
 	/* Bit 5 and 6 of the bank selection */
-	if(d >= 0x4000 && d < 0x6000)
+	if (d >= 0x4000 && d < 0x6000)
 	{
 		if (!ram_select)
 		{
@@ -261,15 +260,15 @@ unsigned int MBC1_write_byte(unsigned short d, unsigned char i)
 		return FILTER_WRITE;
 	}
 
-	if(d >= 0x6000 && d <= 0x7FFF)
+	if (d >= 0x6000 && d <= 0x7FFF)
 	{
-		ram_select = i&1;
+		ram_select = i & 1;
 		return FILTER_WRITE;
 	}
 
 	if (d >= 0xA000 && d < 0xBFFF && ram_enabled)
 	{
-		ram[current_ram_bank * 0x2000 + d - 0xA000] = i;
+		sram[current_ram_bank * 0x2000 + d - 0xA000] = i;
 
 		return FILTER_WRITE;
 	}

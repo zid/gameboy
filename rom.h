@@ -3,7 +3,7 @@
 int rom_load(const char *);
 unsigned char *rom_getbytes(void);
 unsigned int rom_get_mapper(void);
-int get_ram_size(void);
+int get_sram_size(void);
 int has_battery(void);
 enum {
 	NROM,

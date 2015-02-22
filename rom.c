@@ -44,6 +44,38 @@ static char *carts[] = {
 	[0xFF] = "HuC1+RAM+BATTERY",
 };
 
+static char carts_has_battery[] = {
+	[0x00] = 0,
+	[0x01] = 0,
+	[0x02] = 0,
+	[0x03] = 1,
+	[0x05] = 0,
+	[0x06] = 1,
+	[0x08] = 0,
+	[0x09] = 1,
+	[0x0B] = 0,
+	[0x0C] = 0,
+	[0x0D] = 1,
+	[0x0F] = 1,
+	[0x10] = 1,
+	[0x11] = 0,
+	[0x12] = 0,
+	[0x13] = 1,
+	[0x15] = 0,
+	[0x16] = 0,
+	[0x17] = 1,
+	[0x19] = 0,
+	[0x1A] = 0,
+	[0x1B] = 1,
+	[0x1C] = 0,
+	[0x1D] = 0,
+	[0x1E] = 1,
+	[0xFC] = 0,
+	[0xFD] = 0,
+	[0xFE] = 0,
+	[0xFF] = 1
+};
+
 static char *banks[] = {
 	" 32KiB",
 	" 64KiB",
@@ -68,6 +100,7 @@ static char *rams[] = {
 	"128KiB"
 	"Unknown"
 };
+
 static int *rams_sizes[] = {
 	0,
 	2000,
@@ -76,7 +109,6 @@ static int *rams_sizes[] = {
 	128000,
 	128000
 };
-
 
 static char *regions[] = {
 	"Japan",
@@ -93,17 +125,17 @@ static unsigned char header[] = {
 	0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E
 };
 
-int ram_size;
-int battery;
-
-int get_ram_size()
-{
-	return ram_size;
-}
+static int battery;
+static int sram_size;
 
 int has_battery()
 {
 	return battery;
+}
+
+int get_sram_size()
+{
+	return sram_size;
 }
 
 static int rom_init(unsigned char *rombytes)
@@ -119,17 +151,10 @@ static int rom_init(unsigned char *rombytes)
 	buf[16] = '\0';
 	printf("Rom title: %s\n", buf);
 
-
-	printf("%s\n", (rombytes[0x143] == 0x80) ? "GBC" : ((rombytes[0x146] == 0) ? "GB" : "?" ));
-
 	type = rombytes[0x147];
 	
 	printf("Cartridge type: %s (%02X)\n", carts[type], type);
-
-	if (type == 0x03 || type == 0x06 || type == 0x09 || type == 0x0D || type == 0x0F || type == 0x10 || type == 0x13 || type == 0x17 || type == 0x1B || type == 0x1E || type == 0xFF)
-		battery = 1;
-	else
-		battery = 0;
+	battery = carts_has_battery[type];
 
 	bank_index = rombytes[0x148];
 	/* Adjust for the gap in the bank indicies */
@@ -145,7 +170,7 @@ static int rom_init(unsigned char *rombytes)
 		ram = 5;
 
 	printf("RAM size: %s\n", rams[ram]);
-	ram_size = rams_sizes[ram];
+	sram_size = rams_sizes[ram];
 
 	region = rombytes[0x14A];
 	if(region > 2)

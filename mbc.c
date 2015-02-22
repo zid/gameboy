@@ -25,7 +25,7 @@ static unsigned char *sram;
 
 
 #ifdef _WIN32
-BOOL FileExists(LPCTSTR szPath)
+int FileExists(LPCTSTR szPath)
 {
 	DWORD dwAttrib = GetFileAttributes(szPath);
 

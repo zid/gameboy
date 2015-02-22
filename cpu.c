@@ -810,12 +810,6 @@ int cpu_cycle(void)
 			c.PC += 1;
 			c.cycles += 1;
 		break;
-/* STOP
-		case 0x10: 
-			c.PC += 2;
-			c.cycles += 1;
-		break;
-*/
 		case 0x11:	/* LD DE, imm16 */
 			s = mem_get_word(c.PC+1);
 			set_DE(s);

@@ -39,6 +39,7 @@ void external_ram_init(const char* filename)
 	{
 		ram = calloc(1, get_ram_size());
 		current_ram_bank = 0;
+		ram_select = 0;
 
 		if (has_battery())
 		{
@@ -93,7 +94,9 @@ void external_ram_init(const char* filename)
 unsigned char mbc_get_byte(unsigned short d) // Read external RAM if any
 {
 	if (get_ram_size() != 0 && ram_enabled)
+	{
 		return ram[current_ram_bank * 0x2000 + d - 0xA000];
+	}
 	else
 		return 0;
 }
@@ -196,15 +199,26 @@ unsigned int MBC1_write_byte(unsigned short d, unsigned char i)
 	if(d >= 0x4000 && d < 0x6000)
 	{
 		if (!ram_select)
+		{
 			bank_upper_bits = (i & 0x3) << 5;
+		}
 		else
+		{
 			current_ram_bank = i & 0xFF;
+		}
 		return FILTER_WRITE;
 	}
 
 	if(d >= 0x6000 && d <= 0x7FFF)
 	{
 		ram_select = i&1;
+		return FILTER_WRITE;
+	}
+
+	if (d >= 0xA000 && d < 0xBFFF && ram_enabled)
+	{
+		ram[current_ram_bank * 0x2000 + d - 0xA000] = i;
+
 		return FILTER_WRITE;
 	}
 	return NO_FILTER_WRITE;

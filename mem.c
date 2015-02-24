@@ -77,7 +77,7 @@ unsigned char mem_get_byte(unsigned short i)
 		break;
 	}
 	
-	if (i >= 0xA000 && i < 0xC000) // Read external RAM if any
+	if (i >= 0xA000 && i < 0xC000) // Read external SRAM if any
 	{
 		return mbc_get_byte(i);
 	}
@@ -99,7 +99,7 @@ unsigned short mem_get_word(unsigned short i)
 			return mem[0xFE00+elapsed];
 		}
 	}
-	if (i >= 0xA000 && i < 0xC000) // Read external RAM if any
+	if (i >= 0xA000 && i < 0xC000) // Read external SRAM if any
 	{
 		return mbc_get_byte(i) | (mbc_get_byte(i + 1) << 8);
 	}
@@ -138,8 +138,9 @@ void mem_write_byte(unsigned short d, unsigned char i)
 			joypad_select_buttons = i&0x20;
 			joypad_select_directions = i&0x10;
 		break;
-		case 0xFF01: /* Link port data */
-//			fprintf(stderr, "%c", i);
+		case 0xFF01: /* Serial transfert data */
+		break;
+		case 0xFF02: /* Serial transfert control */
 		break;
 		case 0xFF04:
 			timer_set_div(i);

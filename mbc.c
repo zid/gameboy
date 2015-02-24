@@ -16,7 +16,7 @@ enum {
 	FILTER_WRITE
 };
 
-static int rams_sizes[] = {
+static int srams_sizes[] = {
 	0,
 	2000,
 	8000,
@@ -57,8 +57,8 @@ static char has_battery[] = {
 
 
 static unsigned int bank_upper_bits;
-static unsigned int ram_select;
-static unsigned int ram_enabled;
+static unsigned int sram_select;
+static unsigned int sram_enabled;
 static unsigned char current_ram_bank;
 static int sram_size;
 
@@ -83,12 +83,12 @@ void mbc_sram_init(const char* filename)
 	if (ram > 3)
 		ram = 4;
 
-	sram_size = rams_sizes[ram];
+	sram_size = srams_sizes[ram];
 
 	if (!sram_size) return;
 	sram = calloc(1,sram_size);
 	current_ram_bank = 0;
-	ram_select = 0;
+	sram_select = 0;
 
 	if (!has_battery[type]) return;
 #ifdef _WIN32
@@ -138,9 +138,9 @@ void mbc_sram_init(const char* filename)
 
 }
 
-unsigned char mbc_get_byte(unsigned short d) // Read external RAM if any
+unsigned char mbc_get_byte(unsigned short d) // Read external SRAM if any
 {
-	if (sram_size && ram_enabled)
+	if (sram_size && sram_enabled)
 	{
 		return sram[current_ram_bank * 0x2000 + d - 0xA000];
 	}
@@ -157,11 +157,11 @@ unsigned int MBC3_write_byte(unsigned short d, unsigned char i)
 	{
 		if ((i & 0xFF) == 0x0A)
 		{
-			ram_enabled = 0xFF;
+			sram_enabled = 0xFF;
 		}
 		else if ((i & 0xFF) == 0x00)
 		{
-			ram_enabled = 0x00;
+			sram_enabled = 0x00;
 		}
 		return FILTER_WRITE;
 	}
@@ -180,7 +180,7 @@ unsigned int MBC3_write_byte(unsigned short d, unsigned char i)
 	if (d < 0x6000)
 	{
 
-		if (i >= 0x00 && i <= 0x03) //maps the corresponding external RAM Bank (if any) into memory at A000-BFFF
+		if (i >= 0x00 && i <= 0x03) //maps the corresponding external SRAM Bank (if any) into memory at A000-BFFF
 		{
 			current_ram_bank = i;
 		}
@@ -197,7 +197,7 @@ unsigned int MBC3_write_byte(unsigned short d, unsigned char i)
 		return FILTER_WRITE; // TODO : RTC
 	}
 
-	if (d >= 0xA000 && d < 0xBFFF && ram_enabled)
+	if (d >= 0xA000 && d < 0xBFFF && sram_enabled)
 	{
 		sram[current_ram_bank * 0x2000 + d - 0xA000] = i;
 
@@ -215,11 +215,11 @@ unsigned int MBC5_write_byte(unsigned short d, unsigned char i)
 	{
 		if ((i & 0xFF) == 0x0A)
 		{
-			ram_enabled = 0xFF;
+			sram_enabled = 0xFF;
 		}
 		else if ((i & 0xFF) == 0x00)
 		{
-			ram_enabled = 0x00;
+			sram_enabled = 0x00;
 		}
 		return FILTER_WRITE;
 	}
@@ -239,13 +239,13 @@ unsigned int MBC5_write_byte(unsigned short d, unsigned char i)
 	if (d < 0x6000)
 	{
 
-		//maps the corresponding external RAM Bank (if any) into memory at A000-BFFF
+		//maps the corresponding external SRAM Bank (if any) into memory at A000-BFFF
 		current_ram_bank = (i & 0x0F);
 
 		return FILTER_WRITE;
 	}
 
-	if (d >= 0xA000 && d < 0xBFFF && ram_enabled)
+	if (d >= 0xA000 && d < 0xBFFF && sram_enabled)
 	{
 		sram[current_ram_bank * 0x2000 + d - 0xA000] = i;
 
@@ -262,9 +262,9 @@ unsigned int MBC1_write_byte(unsigned short d, unsigned char i)
 	if (d < 0x2000)
 	{
 		if ((i & 0xFF) == 0x00)
-			ram_enabled = 0x00;
+			sram_enabled = 0x00;
 		else if ((i & 0xFF) == 0x0A)
-			ram_enabled = 0xFF;
+			sram_enabled = 0xFF;
 
 		return FILTER_WRITE;
 	}
@@ -274,10 +274,10 @@ unsigned int MBC1_write_byte(unsigned short d, unsigned char i)
 	{
 		/* Bits 0-4 come from the value written to memory here,
 		 * bits 5-6 come from a seperate write to 4000-5fff if
-		 * RAM select is 1.
+		 * SRAM select is 1.
 		 */
 		bank = i & 0x1F;
-		if (!ram_select)
+		if (!sram_select)
 			bank |= bank_upper_bits;
 
 		/* "Writing to this address space selects the lower 5 bits of the
@@ -297,7 +297,7 @@ unsigned int MBC1_write_byte(unsigned short d, unsigned char i)
 	/* Bit 5 and 6 of the bank selection */
 	if (d >= 0x4000 && d < 0x6000)
 	{
-		if (!ram_select)
+		if (!sram_select)
 		{
 			bank_upper_bits = (i & 0x3) << 5;
 		}
@@ -310,11 +310,11 @@ unsigned int MBC1_write_byte(unsigned short d, unsigned char i)
 
 	if (d >= 0x6000 && d <= 0x7FFF)
 	{
-		ram_select = i & 1;
+		sram_select = i & 1;
 		return FILTER_WRITE;
 	}
 
-	if (d >= 0xA000 && d < 0xBFFF && ram_enabled)
+	if (d >= 0xA000 && d < 0xBFFF && sram_enabled)
 	{
 		sram[current_ram_bank * 0x2000 + d - 0xA000] = i;
 

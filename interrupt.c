@@ -31,10 +31,10 @@ int interrupt_flush(void)
 	pending = 0;
 
 	/* There's a pending interrupt but interrupts are disabled, just resume the cpu */
-	if(!enabled && ((vblank && !vblank_masked) 
+	if(!enabled && ((vblank && !vblank_masked)
 		|| (lcdstat && !lcdstat_masked)
 		|| (timer && !timer_masked)
-		|| (serial && !serial_masked) 
+		|| (serial && !serial_masked)
 		|| (joypad && !joypad_masked))
 	)
 		return 1;

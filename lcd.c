@@ -8,7 +8,6 @@ static int lcd_line;
 
 static int lcd_enabled;
 static int window_tilemap_select;
-static int tiledata_select;
 static int window_enabled;
 static int tilemap_select;
 static int bg_tiledata_select;
@@ -28,6 +27,7 @@ struct sprite {
 };
 
 enum {
+	PRIO  = 0x80,
 	VFLIP = 0x40,
 	HFLIP = 0x20,
 	PNUM  = 0x10
@@ -120,9 +120,108 @@ static void sort_sprites(struct sprite *s, int n)
 	while(swapped);
 }
 
+static void draw_bg_and_window(unsigned int *b, int line)
+{
+	int x;
+
+	for(x = 0; x < 160; x++)
+	{
+		unsigned int map_select, map_offset, tile_num, tile_addr, xm, ym;
+		unsigned char b1, b2, mask, colour;
+
+		/* Convert LCD x,y into full 256*256 style internal coords */
+		if(line >= window_y && window_enabled && line - window_y < 144)
+		{
+			xm = x;
+			ym = line - window_y;
+			map_select = window_tilemap_select;
+		}
+		else {
+			if(!bg_enabled)
+			{
+				b[line*640 + x] = 0;
+				return;
+			}
+			xm = (x + scroll_x)%256;
+			ym = (line + scroll_y)%256;
+			map_select = tilemap_select;
+		}
+
+		/* Which pixel is this tile on? Find its offset. */
+		/* (y/8)*32 calculates the offset of the row the y coordinate is on.
+		 * As 256/32 is 8, divide by 8 to map one to the other, this is the row number.
+		 * Then multiply the row number by the width of a row, 32, to find the offset.
+		 * Finally, add x/(256/32) to find the offset within that row. 
+		 */
+		map_offset = (ym/8)*32 + xm/8;
+
+		tile_num = mem_get_raw(0x9800 + map_select*0x400 + map_offset);
+		if(bg_tiledata_select)
+			tile_addr = 0x8000 + tile_num*16;
+		else
+			tile_addr = 0x9000 + ((signed char)tile_num)*16;
+
+		b1 = mem_get_raw(tile_addr+(ym%8)*2);
+		b2 = mem_get_raw(tile_addr+(ym%8)*2+1);
+		mask = 128>>(xm%8);
+		colour = (!!(b2&mask)<<1) | !!(b1&mask);
+		b[line*640 + x] = colours[bgpalette[colour]];
+	}
+}
+
+static void draw_sprites(unsigned int *b, int line, int nsprites, struct sprite *s)
+{
+	int i;
+
+	for(i = 0; i < nsprites; i++)
+	{
+		unsigned int b1, b2, tile_addr, sprite_line, x;
+
+		/* Sprite is offscreen */
+		if(s[i].x < -7)
+			continue;
+
+		/* Which line of the sprite (0-7) are we rendering */
+		sprite_line = s[i].flags & VFLIP ? (sprite_size ? 15 : 7)-(line - s[i].y) : line - s[i].y;
+
+		/* Address of the tile data for this sprite line */
+		tile_addr = 0x8000 + (s[i].tile*16) + sprite_line*2;
+
+		/* The two bytes of data holding the palette entries */
+		b1 = mem_get_raw(tile_addr);
+		b2 = mem_get_raw(tile_addr+1);
+
+		/* For each pixel in the line, draw it */
+		for(x = 0; x < 8; x++)
+		{
+			unsigned char mask, colour;
+			int *pal;
+
+			if((s[i].x + x) >= 160)
+				continue;
+
+			mask = s[i].flags & HFLIP ? 128>>(7-x) : 128>>x;
+			colour = ((!!(b2&mask))<<1) | !!(b1&mask);
+			if(colour == 0)
+				continue;
+
+
+			pal = (s[i].flags & PNUM) ? sprpalette2 : sprpalette1;
+			/* Sprite is behind BG, only render over palette entry 0 */
+			if(s[i].flags & PRIO)
+			{
+				unsigned int temp = b[line*640+(x + s[i].x)];
+				if(temp != colours[bgpalette[0]])
+					continue;
+			}
+			b[line*640+(x + s[i].x)] = colours[pal[colour]];
+		}
+	}
+}
+
 static void render_line(int line)
 {
-	int i, c = 0, x;
+	int i, c = 0;
 
 	struct sprite s[10];
 	unsigned int *b = sdl_get_framebuffer();
@@ -149,81 +248,11 @@ static void render_line(int line)
 		sort_sprites(s, c);
 
 	/* Draw the background layer */
-	for(x = 0; x < 160; x++)
-	{
-		unsigned int map_select, map_offset, tile_num, tile_addr, xm, ym;
-		unsigned char b1, b2, mask, colour;
+	draw_bg_and_window(b, line);
 
-		/* Convert LCD x,y into full 256*256 style internal coords */
-		if(line >= window_y && window_enabled && line - window_y < 144)
-		{
-			xm = x;
-			ym = line - window_y;
-			map_select = window_tilemap_select;
-		}
-		else {
-			xm = (x + scroll_x)%256;
-			ym = (line + scroll_y)%256;
-			map_select = tilemap_select;
-		}
+	draw_sprites(b, line, c, s);
 
-		/* Which pixel is this tile on? Find its offset. */
-		/* (y/8)*32 calculates the offset of the row the y coordinate is on.
-		 * As 256/32 is 8, divide by 8 to map one to the other, this is the row number.
-		 * Then multiply the row number by the width of a row, 32, to find the offset.
-		 * Finally, add x/(256/32) to find the offset within that row. 
-		 */
-		map_offset = (ym/8)*32 + xm/8;
 
-		tile_num = mem_get_raw(0x9800 + map_select*0x400 + map_offset);
-		if(bg_tiledata_select)
-			tile_addr = 0x8000 + tile_num*16;
-		else
-			tile_addr = 0x9000 + ((signed char)tile_num)*16;
-
-		b1 = mem_get_raw(tile_addr+(ym%8)*2);
-		b2 = mem_get_raw(tile_addr+(ym%8)*2+1);
-		mask = 128>>(xm%8);
-		colour = (!!(b2&mask)<<1) | !!(b1&mask);
-		b[line*640 + x] = colours[bgpalette[colour]];
-	}
-
-	for(i = 0; i<c; i++)
-	{
-		unsigned int b1, b2, tile_addr, sprite_line;
-
-		/* Sprite is offscreen */
-		if(s[i].x < 0)
-			continue;
-
-		/* Which line of the sprite (0-7) are we rendering */
-		sprite_line = s[i].flags & VFLIP ? (sprite_size ? 15 : 7)-(line - s[i].y) : line - s[i].y;
-
-		/* Address of the tile data for this sprite line */
-		tile_addr = 0x8000 + (s[i].tile*16) + sprite_line*2;
-
-		/* The two bytes of data holding the palette entries */
-		b1 = mem_get_raw(tile_addr);
-		b2 = mem_get_raw(tile_addr+1);
-
-		/* For each pixel in the line, draw it */
-		for(x = 0; x < 8; x++)
-		{
-			unsigned char mask, colour;
-
-			if((s[i].x + x) >= 160)
-				continue;
-
-			mask = s[i].flags & HFLIP ? 128>>(7-x) : 128>>x;
-			colour = ((!!(b2&mask))<<1) | !!(b1&mask);
-			if(colour != 0)
-			{
-				int *pal;
-				pal = (s[i].flags & PNUM) ? sprpalette2 : sprpalette1;
-				b[line*640+(x + s[i].x)] = colours[pal[colour]];
-			}
-		}
-	}
 }
 
 static void draw_stuff(void)

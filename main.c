@@ -5,6 +5,7 @@
 #include "cpu.h"
 #include "lcd.h"
 #include "sdl.h"
+#include "mbc.h"
 
 int main(int argc, char *argv[])
 {
@@ -24,6 +25,9 @@ int main(int argc, char *argv[])
 
 	printf("ROM OK!\n");
 
+	mbc_sram_init(argv[1]);
+	puts("SRAM OK!");
+	
 	mem_init();
 	printf("Mem OK!\n");
 

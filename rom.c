@@ -44,6 +44,7 @@ static char *carts[] = {
 	[0xFF] = "HuC1+RAM+BATTERY",
 };
 
+
 static char *banks[] = {
 	" 32KiB",
 	" 64KiB",
@@ -65,8 +66,10 @@ static char *rams[] = {
 	"  2KiB",
 	"  8KiB",
 	" 32KiB",
+	"128KiB"
 	"Unknown"
 };
+
 
 static char *regions[] = {
 	"Japan",
@@ -83,6 +86,7 @@ static unsigned char header[] = {
 	0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E
 };
 
+
 static int rom_init(unsigned char *rombytes)
 {
 	char buf[17];
@@ -97,9 +101,9 @@ static int rom_init(unsigned char *rombytes)
 	printf("Rom title: %s\n", buf);
 
 	type = rombytes[0x147];
-
+	
 	printf("Cartridge type: %s (%02X)\n", carts[type], type);
-
+	
 	bank_index = rombytes[0x148];
 	/* Adjust for the gap in the bank indicies */
 	if(bank_index >= 0x52 && bank_index <= 0x54)
@@ -110,11 +114,11 @@ static int rom_init(unsigned char *rombytes)
 	printf("Rom size: %s\n", banks[bank_index]);
 
 	ram = rombytes[0x149];
-	if(ram > 3)
-		ram = 4;
+	if(ram > 4)
+		ram = 5;
 
 	printf("RAM size: %s\n", rams[ram]);
-
+	
 	region = rombytes[0x14A];
 	if(region > 2)
 		region = 2;
@@ -175,7 +179,7 @@ static int rom_init(unsigned char *rombytes)
 			mapper = MBC5;
 		break;
 	}
-
+	
 	return 1;
 }
 
@@ -220,6 +224,7 @@ int rom_load(const char *filename)
 	if(!bytes)
 		return 0;
 #endif
+
 	return rom_init(bytes);
 }
 

@@ -3,7 +3,6 @@
 int rom_load(const char *);
 unsigned char *rom_getbytes(void);
 unsigned int rom_get_mapper(void);
-
 enum {
 	NROM,
 	MBC1,

@@ -21,12 +21,12 @@ void mem_bank_switch(unsigned int n)
 }
 
 /* LCD's access to VRAM */
-unsigned char mem_get_raw(unsigned short p)
+unsigned char inline mem_get_raw(unsigned short p)
 {
 	return mem[p];
 }
 
-unsigned char mem_get_byte(unsigned short i)
+unsigned char inline mem_get_byte(unsigned short i)
 {
 	unsigned long elapsed;
 	unsigned char mask = 0;
@@ -42,14 +42,17 @@ unsigned char mem_get_byte(unsigned short i)
 		}
 	}
 
+	if(i < 0xFF00)
+		return mem[i];
+
 	switch(i)
 	{
 		case 0xFF00:	/* Joypad */
 			if(!joypad_select_buttons)
-				mask |= sdl_get_buttons();
+				mask = sdl_get_buttons();
 			if(!joypad_select_directions)
-				mask |= sdl_get_directions();
-			return (0xFF ^ mask)  ^ (joypad_select_buttons | joypad_select_directions);
+				mask = sdl_get_directions();
+			return 0xC0 | (0xF^mask) | (joypad_select_buttons | joypad_select_directions);
 		break;
 		case 0xFF04:
 			return timer_get_div();
@@ -66,6 +69,9 @@ unsigned char mem_get_byte(unsigned short i)
 		case 0xFF0F:
 			return interrupt_get_IF();
 		break;
+		case 0xFF41:
+			return lcd_get_stat();
+		break;
 		case 0xFF44:
 			return lcd_get_line();
 		break;
@@ -76,6 +82,7 @@ unsigned char mem_get_byte(unsigned short i)
 			return interrupt_get_mask();
 		break;
 	}
+
 	return mem[i];
 }
 
@@ -141,16 +148,21 @@ void mem_write_byte(unsigned short d, unsigned char i)
 		break;
 		case 0xFF0F:
 			interrupt_set_IF(i);
-			return;
 		break;
 		case 0xFF40:
 			lcd_write_control(i);
+		break;
+		case 0xFF41:
+			lcd_write_stat(i);
 		break;
 		case 0xFF42:
 			lcd_write_scroll_y(i);
 		break;
 		case 0xFF43:
 			lcd_write_scroll_x(i);
+		break;
+		case 0xFF45:
+			lcd_set_ly_compare(i);
 		break;
 		case 0xFF46: /* OAM DMA */
 			/* Copy bytes from i*0x100 to OAM */
@@ -175,7 +187,7 @@ void mem_write_byte(unsigned short d, unsigned char i)
 			return;
 		break;
 	}
-
+	
 	mem[d] = i;
 }
 

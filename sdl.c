@@ -1,6 +1,10 @@
 #include <SDL/SDL.h>
-
+#include <sys/time.h>
 static SDL_Surface *screen;
+static unsigned int frames;
+static struct timeval tv1, tv2;
+
+
 
 static int button_start, button_select, button_a, button_b, button_down, button_up, button_left, button_right;
 
@@ -102,6 +106,15 @@ unsigned int *sdl_get_framebuffer(void)
 
 void sdl_frame(void)
 {
+	if(frames == 0)
+		gettimeofday(&tv1, NULL);
+	
+	frames++;
+	if(frames % 1000 == 0)
+	{
+		gettimeofday(&tv2, NULL);
+		printf("Frames %d, seconds: %d, fps: %d\n", frames, tv2.tv_sec - tv1.tv_sec, frames/(tv2.tv_sec - tv1.tv_sec));
+	}
 	SDL_Flip(screen);
 }
 

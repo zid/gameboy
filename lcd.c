@@ -5,7 +5,18 @@
 #include "mem.h"
 
 static int lcd_line;
+static int lcd_ly_compare;
 
+
+/* LCD STAT */
+static int ly_int;	/* LYC = LY coincidence interrupt enable */
+static int mode2_oam_int;
+static int mode1_vblank_int;
+static int mode0_hblank_int;
+static int ly_int_flag;
+static int lcd_mode;
+
+/* LCD Control */
 static int lcd_enabled;
 static int window_tilemap_select;
 static int window_enabled;
@@ -33,6 +44,12 @@ enum {
 	PNUM  = 0x10
 };
 
+unsigned char lcd_get_stat(void)
+{
+
+	return (ly_int)<<6 | lcd_mode;
+}
+
 void lcd_write_bg_palette(unsigned char n)
 {
 	bgpalette[0] = (n>>0)&3;
@@ -59,6 +76,7 @@ void lcd_write_spr_palette2(unsigned char n)
 
 void lcd_write_scroll_x(unsigned char n)
 {
+//	printf("x scroll changed to %02x\n", n);
 	scroll_x = n;
 }
 
@@ -72,8 +90,15 @@ int lcd_get_line(void)
 	return lcd_line;
 }
 
+void lcd_write_stat(unsigned char c)
+{
+	ly_int = !!(c&0x40);
+}
+
 void lcd_write_control(unsigned char c)
 {
+//	printf("LCDC set to %02x\n", c);
+//	cpu_print_debug();
 	bg_enabled            = !!(c & 0x01);
 	sprites_enabled       = !!(c & 0x02);
 	sprite_size           = !!(c & 0x04);
@@ -82,6 +107,11 @@ void lcd_write_control(unsigned char c)
 	window_enabled        = !!(c & 0x20);
 	window_tilemap_select = !!(c & 0x40);
 	lcd_enabled           = !!(c & 0x80);
+}
+
+void lcd_set_ly_compare(unsigned char c)
+{
+	lcd_ly_compare = c;
 }
 
 void lcd_set_window_y(unsigned char n) {
@@ -287,18 +317,29 @@ static void draw_stuff(void)
 int lcd_cycle(void)
 {
 	int cycles = cpu_get_cycles();
-	int this_frame;
+	int this_frame, subframe_cycles;
 	static int prev_line;
 
 	if(sdl_update())
 		return 0;
 
 	this_frame = cycles % (70224/4);
-
 	lcd_line = this_frame / (456/4);
+
+	if(this_frame < 204/4)
+		lcd_mode = 2;
+	else if(this_frame < 284/4)
+		lcd_mode = 3;
+	else if(this_frame < 456/4)
+		lcd_mode = 0;
+	if(lcd_line >= 144)
+		lcd_mode = 1;
+		
 	if(lcd_line != prev_line && lcd_line < 144)
 		render_line(lcd_line);
 
+	if(ly_int && lcd_line == lcd_ly_compare)
+		interrupt(INTR_LCDSTAT);
 
 	if(prev_line == 143 && lcd_line == 144)
 	{

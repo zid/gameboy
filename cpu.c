@@ -680,32 +680,41 @@ unsigned int cpu_get_cycles(void)
 	return c.cycles;
 }
 
+void cpu_print_debug(void)
+{
+	printf("%04X: %02X\n", c.PC, mem_get_byte(c.PC));
+	printf("\tAF: %02X%02X, BC: %02X%02X, DE: %02X%02X, HL: %02X%02X SP: %04X, cycles %d\n",
+		c.A, c.F, c.B, c.C, c.D, c.E, c.H, c.L, c.SP, c.cycles);
+}
+
 int cpu_cycle(void)
 {
 	unsigned char b, t;
 	unsigned short s;
 	unsigned int i;
-
-	if(interrupt_flush())
-	{
-		halted = 0;
-	}
+	
 	if(halted)
 	{
 		c.cycles += 1;
 		return 1;
 	}
 
+	if(interrupt_flush())
+	{
+		halted = 0;
+	}
+
+
 	b = mem_get_byte(c.PC);
 
 #ifdef EBUG
-	is_debugged = 1;
+//	if(c.PC == 0x2F38 && c.cycles > 10000000)
+//	if(c.PC == 0xff87 && c.cycles > 14000000)
+//		is_debugged = 0;
 #endif
 	if(is_debugged)
 	{
-		printf("%04X: %02X\n", c.PC, b);
-		printf("\tAF: %02X%02X, BC: %02X%02X, DE: %02X%02X, HL: %02X%02X SP: %04X, cycles %d\n",
-			c.A, c.F, c.B, c.C, c.D, c.E, c.H, c.L, c.SP, cpu_get_cycles());
+		cpu_print_debug();
 	}
 
 	switch(b)
@@ -784,10 +793,10 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0x0C:	/* INC C */
+			set_H((c.C&0xF) == 0xF);
 			c.C++;
 			set_Z(!c.C);
 			set_N(0);
-			set_H((c.C&0xF) == 0);
 			c.PC += 1;
 			c.cycles += 1;
 		break;
@@ -881,9 +890,9 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0x1C:	/* INC E */
+			set_H((c.E&0xF) == 0xF);
 			c.E++;
 			set_Z(!c.E);
-			set_H((c.E&0xF) == 0);
 			set_N(0);
 			c.PC += 1;
 			c.cycles += 1;
@@ -2411,6 +2420,7 @@ int cpu_cycle(void)
 		break;
 		case 0xFB:	/* EI */
 			interrupt_enable();
+//			printf("Interrupts enabled, IE: %02x\n", interrupt_get_mask());
 			c.PC += 1;
 			c.cycles += 1;
 		break;

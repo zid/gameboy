@@ -19,7 +19,7 @@ static unsigned int serial_masked = 1;
 static unsigned int joypad_masked = 1;
 
 /* Returns true if the cpu should be unhalted */
-int interrupt_flush(void)
+int inline interrupt_flush(void)
 {
 	/* Flush the highest priority interrupt and/or resume the cpu */
 	if(pending == 2)
@@ -124,6 +124,7 @@ unsigned char interrupt_get_IF(void)
 
 void interrupt_set_IF(unsigned char mask)
 {
+//	printf("IF set to %02x\n", mask);
 	vblank  = !!(mask & 0x01);
 	lcdstat = !!(mask & 0x02);
 	timer   = !!(mask & 0x04);

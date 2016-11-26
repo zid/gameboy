@@ -21,12 +21,12 @@ void mem_bank_switch(unsigned int n)
 }
 
 /* LCD's access to VRAM */
-unsigned char inline mem_get_raw(unsigned short p)
+inline unsigned char mem_get_raw(unsigned short p)
 {
 	return mem[p];
 }
 
-unsigned char inline mem_get_byte(unsigned short i)
+unsigned char mem_get_byte(unsigned short i)
 {
 	unsigned long elapsed;
 	unsigned char mask = 0;
@@ -74,6 +74,9 @@ unsigned char inline mem_get_byte(unsigned short i)
 		break;
 		case 0xFF44:
 			return lcd_get_line();
+		break;
+		case 0xFF45:
+			return lcd_get_ly_compare();
 		break;
 		case 0xFF4D:	/* GBC speed switch */
 			return 0xFF;
@@ -194,7 +197,9 @@ void mem_write_byte(unsigned short d, unsigned char i)
 void mem_write_word(unsigned short d, unsigned short i)
 {
 	mem[d] = i&0xFF;
-	mem[d+1] = i>>8;
+	//mem_write_byte(d, i&0xFF);
+	mem_write_byte(d+1, i>>8);
+//	mem[d+1] = i>>8;
 }
 
 void mem_init(void)

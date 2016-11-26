@@ -1,10 +1,10 @@
 #include <SDL/SDL.h>
 #include <sys/time.h>
+#include <windows.h>
+#include <stdio.h>
 static SDL_Surface *screen;
 static unsigned int frames;
 static struct timeval tv1, tv2;
-
-
 
 static int button_start, button_select, button_a, button_b, button_down, button_up, button_left, button_right;
 
@@ -12,6 +12,7 @@ void sdl_init(void)
 {
 	SDL_Init(SDL_INIT_VIDEO);
 	screen = SDL_SetVideoMode(640, 480, 32, SDL_HWSURFACE | SDL_DOUBLEBUF);
+	SDL_WM_SetCaption("Fer is an ejit", NULL);
 }
 
 int sdl_update(void)
@@ -51,6 +52,8 @@ int sdl_update(void)
 				case SDLK_UP:
 					button_up = 1;
 				break;
+				case SDLK_ESCAPE:
+					return 1;
 			}
 		}
 
@@ -115,6 +118,7 @@ void sdl_frame(void)
 		gettimeofday(&tv2, NULL);
 		printf("Frames %d, seconds: %d, fps: %d\n", frames, tv2.tv_sec - tv1.tv_sec, frames/(tv2.tv_sec - tv1.tv_sec));
 	}
+	Sleep(16);
 	SDL_Flip(screen);
 }
 

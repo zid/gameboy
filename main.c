@@ -30,17 +30,29 @@ int main(int argc, char *argv[])
 	cpu_init();
 	printf("CPU OK!\n");
 
+	r = 0;
+
 	while(1)
 	{
+		int now;
+
 		if(!cpu_cycle())
 			break;
 
-		if(!lcd_cycle())
-			break;
+		now = cpu_get_cycles();
+
+		while(now != r)
+		{
+			if(!lcd_cycle())
+				goto out;
+			r++;
+		}
+
+		r = now;
 
 		timer_cycle();
 	}
-
+out:
 	sdl_quit();
 
 	return 0;

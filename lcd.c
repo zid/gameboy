@@ -4,16 +4,17 @@
 #include "sdl.h"
 #include "mem.h"
 
-static int lcd_line;
-static int lcd_ly_compare;
+#include <assert.h>
 
+static int lcd_cycles;
+static int lcd_line, prev_line;
+static int lcd_ly_compare;
 
 /* LCD STAT */
 static int ly_int;	/* LYC = LY coincidence interrupt enable */
-static int mode2_oam_int;
-static int mode1_vblank_int;
-static int mode0_hblank_int;
-static int ly_int_flag;
+static int oam_int;
+static int vblank_int;
+static int hblank_int;
 static int lcd_mode;
 
 /* LCD Control */
@@ -44,12 +45,6 @@ enum {
 	PNUM  = 0x10
 };
 
-unsigned char lcd_get_stat(void)
-{
-
-	return (ly_int)<<6 | lcd_mode;
-}
-
 void lcd_write_bg_palette(unsigned char n)
 {
 	bgpalette[0] = (n>>0)&3;
@@ -76,7 +71,6 @@ void lcd_write_spr_palette2(unsigned char n)
 
 void lcd_write_scroll_x(unsigned char n)
 {
-//	printf("x scroll changed to %02x\n", n);
 	scroll_x = n;
 }
 
@@ -90,15 +84,26 @@ int lcd_get_line(void)
 	return lcd_line;
 }
 
+unsigned char lcd_get_stat(void)
+{
+	unsigned char coincidence = (lcd_line == lcd_ly_compare) << 2;
+	return 0x80 | ly_int | oam_int | vblank_int | hblank_int | coincidence | lcd_mode;
+}
+
 void lcd_write_stat(unsigned char c)
 {
-	ly_int = !!(c&0x40);
+	ly_int     = c&0x40;
+	oam_int    = c&0x20;
+	vblank_int = c&0x10;
+	hblank_int = c&0x08;
 }
 
 void lcd_write_control(unsigned char c)
 {
-//	printf("LCDC set to %02x\n", c);
-//	cpu_print_debug();
+	/* LCD just got turned on */
+	if(!lcd_enabled && (c & 0x80))
+		lcd_cycles = 0;
+
 	bg_enabled            = !!(c & 0x01);
 	sprites_enabled       = !!(c & 0x02);
 	sprite_size           = !!(c & 0x04);
@@ -107,6 +112,11 @@ void lcd_write_control(unsigned char c)
 	window_enabled        = !!(c & 0x20);
 	window_tilemap_select = !!(c & 0x40);
 	lcd_enabled           = !!(c & 0x80);
+}
+
+unsigned char lcd_get_ly_compare(void)
+{
+	return lcd_ly_compare;
 }
 
 void lcd_set_ly_compare(unsigned char c)
@@ -121,6 +131,8 @@ void lcd_set_window_y(unsigned char n) {
 void lcd_set_window_x(unsigned char n) {
 	window_x = n;
 }
+
+#define POKE(x, y, c) do { assert((x) <= 455); assert((y) < 154); b[(y)*640 + (x)] = (c); } while(0)
 
 static void swap(struct sprite *a, struct sprite *b)
 {
@@ -140,7 +152,7 @@ static void sort_sprites(struct sprite *s, int n)
 		swapped = 0;
 		for(i = 0; i < n-1; i++)
 		{
-			if(s[i].x < s[i+1].x)
+			if(s[i].x > s[i+1].x)
 			{
 				swap(&s[i], &s[i+1]);
 				swapped = 1;
@@ -150,39 +162,100 @@ static void sort_sprites(struct sprite *s, int n)
 	while(swapped);
 }
 
-static void draw_bg_and_window(unsigned int *b, int line)
+static int sprites_update(int line, struct sprite *spr)
 {
-	int x;
+	int i, c = 0;
 
-	for(x = 0; x < 160; x++)
+	for(i = 0; i < 40; i++)
 	{
-		unsigned int map_select, map_offset, tile_num, tile_addr, xm, ym;
-		unsigned char b1, b2, mask, colour;
+		int y;
 
-		/* Convert LCD x,y into full 256*256 style internal coords */
-		if(line >= window_y && window_enabled && line - window_y < 144)
+		y = mem_get_raw(0xFE00 + (i*4) + 0) - 16;
+
+		if(line < y || line >= y + 8 + (sprite_size*8))
+			continue;
+
+		spr[c].y     = y;
+		spr[c].x     = mem_get_raw(0xFE00 + (i*4) + 1) - 8;
+		spr[c].tile  = mem_get_raw(0xFE00 + (i*4) + 2);
+		spr[c].flags = mem_get_raw(0xFE00 + (i*4) + 3);
+		c++;
+
+		if(c == 10)
 		{
-			xm = x;
-			ym = line - window_y;
-			map_select = window_tilemap_select;
+			break;
 		}
-		else {
+	}
+
+	if(c)
+		sort_sprites(spr, c);
+
+	return c;
+}
+
+/* Process scanline 'line', cycle 'cycle' within that line */
+static void lcd_do_line(int line, int cycle)
+{
+	unsigned int *b = sdl_get_framebuffer();
+	static struct sprite spr[10] = {0};
+	static int line_fill = 0, fetch_delay = 0, sprite_count = 0, window_lines = 0, window_used = 0;
+	static unsigned char scx_low_latch = 0;
+
+	if(fetch_delay)
+	{
+		fetch_delay--;
+		return;
+	}
+
+	if(line >= 144)
+	{
+		lcd_mode = 1;
+		window_lines =  0;
+		return;
+	}
+
+	if(cycle < 80)
+		lcd_mode = 2;
+	else
+		if(lcd_mode == 2 && cycle >= 80)
+		{
+			scx_low_latch = scroll_x & 7;
+			sprite_count = sprites_update(line, spr);
+			lcd_mode = 3;
+		}
+
+	if(cycle < 86)
+		return;
+
+	if(lcd_mode == 3)
+	{
+		int colour = 0, i, prio = 0;
+
+		unsigned int map_select, map_offset, tile_num, tile_addr, xm, ym;
+		unsigned char b1, b2, mask;
+		int bgcol, sprcol = -1;
+		int *pal;
+
+		if(line >= window_y && window_enabled && line - window_y < 144 && (window_x-7) <= line_fill)
+		{
+			xm = line_fill - (window_x-7);
+			ym = window_lines;
+			map_select = window_tilemap_select;
+			window_used = 1;
+		}
+		else
+		{
 			if(!bg_enabled)
 			{
-				b[line*640 + x] = 0;
-				return;
+				bgcol = 0;
+				goto skip_bg;
 			}
-			xm = (x + scroll_x)%256;
+
+			xm = (line_fill + (scroll_x & 0xF8) + scx_low_latch)%256;
 			ym = (line + scroll_y)%256;
 			map_select = tilemap_select;
 		}
 
-		/* Which pixel is this tile on? Find its offset. */
-		/* (y/8)*32 calculates the offset of the row the y coordinate is on.
-		 * As 256/32 is 8, divide by 8 to map one to the other, this is the row number.
-		 * Then multiply the row number by the width of a row, 32, to find the offset.
-		 * Finally, add x/(256/32) to find the offset within that row. 
-		 */
 		map_offset = (ym/8)*32 + xm/8;
 
 		tile_num = mem_get_raw(0x9800 + map_select*0x400 + map_offset);
@@ -193,161 +266,102 @@ static void draw_bg_and_window(unsigned int *b, int line)
 
 		b1 = mem_get_raw(tile_addr+(ym%8)*2);
 		b2 = mem_get_raw(tile_addr+(ym%8)*2+1);
+
 		mask = 128>>(xm%8);
-		colour = (!!(b2&mask)<<1) | !!(b1&mask);
-		b[line*640 + x] = colours[bgpalette[colour]];
-	}
-}
 
-static void draw_sprites(unsigned int *b, int line, int nsprites, struct sprite *s)
-{
-	int i;
+		bgcol = (!!(b2&mask)<<1) | !!(b1&mask);
 
-	for(i = 0; i < nsprites; i++)
-	{
-		unsigned int b1, b2, tile_addr, sprite_line, x;
-
-		/* Sprite is offscreen */
-		if(s[i].x < -7)
-			continue;
-
-		/* Which line of the sprite (0-7) are we rendering */
-		sprite_line = s[i].flags & VFLIP ? (sprite_size ? 15 : 7)-(line - s[i].y) : line - s[i].y;
-
-		/* Address of the tile data for this sprite line */
-		tile_addr = 0x8000 + (s[i].tile*16) + sprite_line*2;
-
-		/* The two bytes of data holding the palette entries */
-		b1 = mem_get_raw(tile_addr);
-		b2 = mem_get_raw(tile_addr+1);
-
-		/* For each pixel in the line, draw it */
-		for(x = 0; x < 8; x++)
+skip_bg:
+		for(i = 0; i < sprite_count; i++)
 		{
-			unsigned char mask, colour;
-			int *pal;
+			int sprite_line, tile_addr, b1, b2, x;
+			unsigned char mask;
 
-			if((s[i].x + x) >= 160)
+			if(!sprites_enabled)
+				break;
+
+			if(spr[i].x < -7)
 				continue;
 
-			mask = s[i].flags & HFLIP ? 128>>(7-x) : 128>>x;
-			colour = ((!!(b2&mask))<<1) | !!(b1&mask);
-			if(colour == 0)
+			if(spr[i].x + 7 < line_fill || spr[i].x > line_fill)
 				continue;
 
+			sprite_line = 0;
+			if(spr[i].flags & VFLIP)
+				sprite_line = (sprite_size ? 15 : 7) - (line - spr[i].y);
+			else
+				sprite_line = line - spr[i].y;
 
-			pal = (s[i].flags & PNUM) ? sprpalette2 : sprpalette1;
-			/* Sprite is behind BG, only render over palette entry 0 */
-			if(s[i].flags & PRIO)
-			{
-				unsigned int temp = b[line*640+(x + s[i].x)];
-				if(temp != colours[bgpalette[0]])
-					continue;
-			}
-			b[line*640+(x + s[i].x)] = colours[pal[colour]];
-		}
-	}
-}
+			if(sprite_size)
+				tile_addr = 0x8000 + (spr[i].tile & 0xFE) * 16 + sprite_line * 2;
+			else
+				tile_addr = 0x8000 + spr[i].tile * 16 + sprite_line * 2;
 
-static void render_line(int line)
-{
-	int i, c = 0;
+			b1 = mem_get_raw(tile_addr);
+			b2 = mem_get_raw(tile_addr + 1);
 
-	struct sprite s[10];
-	unsigned int *b = sdl_get_framebuffer();
+			x = line_fill - spr[i].x;
 
-	for(i = 0; i<40; i++)
-	{
-		int y;
+			mask = spr[i].flags & HFLIP ? 128>>(7-x) : 128>>x;
+			sprcol = (!!(b2&mask))<<1 | !!(b1&mask);
+			if(!sprcol)
+				continue;
 
-		y = mem_get_raw(0xFE00 + (i*4)) - 16;
-		if(line < y || line >= y + 8+(sprite_size*8))
-			continue;
+			pal = (spr[i].flags & PNUM) ? sprpalette2 : sprpalette1;
 
-		s[c].y     = y;
-		s[c].x     = mem_get_raw(0xFE00 + (i*4) + 1)-8;
-		s[c].tile  = mem_get_raw(0xFE00 + (i*4) + 2);
-		s[c].flags = mem_get_raw(0xFE00 + (i*4) + 3);
-		c++;
-
-		if(c == 10)
 			break;
-	}
+		}
 
-	if(c)
-		sort_sprites(s, c);
+		if(sprcol <= 0 || ((spr[i].flags & PRIO) && bgcol != 0))
+			colour = colours[bgpalette[bgcol]];
+		else
+			colour = colours[pal[sprcol]];
 
-	/* Draw the background layer */
-	draw_bg_and_window(b, line);
+		POKE(line_fill, line, colour);
 
-	draw_sprites(b, line, c, s);
-
-
-}
-
-static void draw_stuff(void)
-{
-	unsigned int *b = sdl_get_framebuffer();
-	int y, tx, ty;
-
-	for(ty = 0; ty < 24; ty++)
-	{
-	for(tx = 0; tx < 16; tx++)
-	{
-	for(y = 0; y<8; y++)
-	{
-		unsigned char b1, b2;
-		int tileaddr = 0x8000 +  ty*0x100 + tx*16 + y*2;
-
-		b1 = mem_get_raw(tileaddr);
-		b2 = mem_get_raw(tileaddr+1);
-		b[(ty*640*8)+(tx*8) + (y*640) + 0 + 0x1F400] = colours[(!!(b1&0x80))<<1 | !!(b2&0x80)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 1 + 0x1F400] = colours[(!!(b1&0x40))<<1 | !!(b2&0x40)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 2 + 0x1F400] = colours[(!!(b1&0x20))<<1 | !!(b2&0x20)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 3 + 0x1F400] = colours[(!!(b1&0x10))<<1 | !!(b2&0x10)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 4 + 0x1F400] = colours[(!!(b1&0x8))<<1 | !!(b2&0x8)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 5 + 0x1F400] = colours[(!!(b1&0x4))<<1 | !!(b2&0x4)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 6 + 0x1F400] = colours[(!!(b1&0x2))<<1 | !!(b2&0x2)];
-		b[(ty*640*8)+(tx*8) + (y*640) + 7 + 0x1F400] = colours[(!!(b1&0x1))<<1 | !!(b2&0x1)];
-	}
-	}
+		if(line_fill++ == 160)
+		{
+			lcd_mode = 0;
+			line_fill = 0;
+			sprite_count = 0;
+			if(window_used)
+				window_lines++;
+			window_used = 0;
+		}
 	}
 }
 
 int lcd_cycle(void)
 {
-	int cycles = cpu_get_cycles();
-	int this_frame, subframe_cycles;
-	static int prev_line;
+	int leftover;
 
-	if(sdl_update())
-		return 0;
 
-	this_frame = cycles % (70224/4);
-	lcd_line = this_frame / (456/4);
+	/* Amount of cycles left over since the last full frame */
+	leftover = lcd_cycles % (456 * 154);
 
-	if(this_frame < 204/4)
-		lcd_mode = 2;
-	else if(this_frame < 284/4)
-		lcd_mode = 3;
-	else if(this_frame < 456/4)
-		lcd_mode = 0;
-	if(lcd_line >= 144)
-		lcd_mode = 1;
-		
-	if(lcd_line != prev_line && lcd_line < 144)
-		render_line(lcd_line);
+	/* Each scanline is 456 cycles */
+	lcd_line = leftover / 456;
 
-	if(ly_int && lcd_line == lcd_ly_compare)
-		interrupt(INTR_LCDSTAT);
-
-	if(prev_line == 143 && lcd_line == 144)
+	if(lcd_line != prev_line && ly_int && lcd_line == lcd_ly_compare)
 	{
-		draw_stuff();
-		interrupt(INTR_VBLANK);
-		sdl_frame();
+		interrupt(INTR_LCDSTAT);
 	}
+
+	lcd_do_line(lcd_line, leftover % 456);
+
+	if(lcd_line == 144 && prev_line == 143)
+	{
+		if(sdl_update())
+			return 0;
+
+		sdl_frame();
+		interrupt(INTR_VBLANK);
+	}
+
 	prev_line = lcd_line;
+
+	lcd_cycles++;
+
 	return 1;
 }
 

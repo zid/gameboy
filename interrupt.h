@@ -8,8 +8,8 @@ unsigned char interrupt_get_IF(void);
 void interrupt_set_IF(unsigned char);
 unsigned char interrupt_get_mask(void);
 void interrupt_set_mask(unsigned char);
-int interrupt_pending(void);
-int interrupt_flush(void);
+//int interrupt_pending(void);
+void interrupt_flush(void);
 
 enum {
 	INTR_VBLANK  = 0x01,

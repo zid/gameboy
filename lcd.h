@@ -13,4 +13,5 @@ void lcd_write_spr_palette2(unsigned char);
 void lcd_set_window_y(unsigned char);
 void lcd_set_window_x(unsigned char);
 void lcd_set_ly_compare(unsigned char);
+unsigned char lcd_get_ly_compare(void);
 #endif

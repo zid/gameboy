@@ -12,6 +12,7 @@ void sdl_init(void)
 {
 	SDL_Init(SDL_INIT_VIDEO);
 	screen = SDL_SetVideoMode(640, 480, 32, SDL_HWSURFACE | SDL_DOUBLEBUF);
+	SDL_WM_SetCaption("Fer is an ejit", NULL);
 }
 
 int sdl_update(void)
@@ -51,6 +52,8 @@ int sdl_update(void)
 				case SDLK_UP:
 					button_up = 1;
 				break;
+				case SDLK_ESCAPE:
+					return 1;
 			}
 		}
 

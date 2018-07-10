@@ -63,12 +63,18 @@
 #define XORR(x) \
 	c.A ^= x; \
 	set_Z(!c.A); \
+	set_H(0); \
+	set_N(0); \
+	set_C(0); \
 	c.PC += 1; \
 	c.cycles += 1;
 
 #define ORR(x) \
 	c.A |= x; \
 	set_Z(!c.A); \
+	set_H(0); \
+	set_N(0); \
+	set_C(0); \
 	c.PC += 1; \
 	c.cycles += 1;
 
@@ -763,7 +769,7 @@ unsigned int cpu_get_cycles(void)
 void cpu_print_debug(void)
 {
 	printf("%04X: %02X\n", c.PC, mem_get_byte(c.PC));
-	printf("\tAF: %02X%02X, BC: %02X%02X, DE: %02X%02X, HL: %02X%02X SP: %04X, cycles %d, %d\n",
+	printf("\tAF: %02X%02X, BC: %02X%02X, DE: %02X%02X, HL: %02X%02X SP: %04X, cycles %d\n",
 		c.A, c.F, c.B, c.C, c.D, c.E, c.H, c.L, c.SP, c.cycles, halted);
 }
 
@@ -790,10 +796,6 @@ int cpu_cycle(void)
 #ifdef EBUG
 	
 #endif
-	if(c.cycles == 1000000)
-		abort();
-	is_debugged = 1;
-
 	if(is_debugged)
 	{
 		cpu_print_debug();

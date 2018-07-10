@@ -87,7 +87,7 @@ static void timer_tick(void)
 
 void timer_cycle(void)
 {
-	/* The amount of ticks since we last ran */ 
+	/* The amount of ticks since we last ran */
 	unsigned int delta = cpu_get_cycles() - prev_time;
 	prev_time = cpu_get_cycles();
 

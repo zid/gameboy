@@ -154,11 +154,11 @@ static void sort_sprites(struct sprite *s, int n)
 	while(swapped);
 }
 
-static void draw_bg_and_window(unsigned int *b, int line)
+static void draw_bg_and_window(unsigned int *b, int line, int ox, int d)
 {
 	int x;
 
-	for(x = 0; x < 160; x++)
+	for(x = ox; x < ox+d; x++)
 	{
 		unsigned int map_select, map_offset, tile_num, tile_addr, xm, ym;
 		unsigned char b1, b2, mask, colour;
@@ -253,39 +253,48 @@ static void draw_sprites(unsigned int *b, int line, int nsprites, struct sprite 
 	}
 }
 
-static void render_line(int line)
+static void render_line(int line, int x, int d)
 {
-	int i, c = 0;
+	int i;
+	static int c;
 
-	struct sprite s[10];
+	static struct sprite s[10];
 	unsigned int *b = sdl_get_framebuffer();
 
-	for(i = 0; i<40; i++)
+	/* Pretend this is lcd mode 2, see if there will be sprites this line */
+	if(x == 0)
 	{
-		int y;
+		for(i = 0; i<40; i++)
+		{
+			int y;
 
-		y = mem_get_raw(0xFE00 + (i*4)) - 16;
-		if(line < y || line >= y + 8+(sprite_size*8))
-			continue;
+			y = mem_get_raw(0xFE00 + (i*4)) - 16;
+			if(line < y || line >= y + 8+(sprite_size*8))
+				continue;
 
-		s[c].y     = y;
-		s[c].x     = mem_get_raw(0xFE00 + (i*4) + 1)-8;
-		s[c].tile  = mem_get_raw(0xFE00 + (i*4) + 2);
-		s[c].flags = mem_get_raw(0xFE00 + (i*4) + 3);
-		c++;
+			s[c].y     = y;
+			s[c].x     = mem_get_raw(0xFE00 + (i*4) + 1)-8;
+			s[c].tile  = mem_get_raw(0xFE00 + (i*4) + 2);
+			s[c].flags = mem_get_raw(0xFE00 + (i*4) + 3);
+			c++;
 
-		if(c == 10)
-			break;
+			if(c == 10)
+				break;
+		}
+
+		if(c)
+			sort_sprites(s, c);
 	}
 
-	if(c)
-		sort_sprites(s, c);
-
 	/* Draw the background layer */
-	draw_bg_and_window(b, line);
+	draw_bg_and_window(b, line, x, d);
 
-	draw_sprites(b, line, c, s);
-
+	/* If there were sprites this line, paste them over what we drew */
+	if(x+d >= 160 && c)
+	{
+		draw_sprites(b, line, c, s);
+		c = 0;
+	}
 	b[line*640+168] =
 	b[line*640+169] = bg_tiledata_select ? 0x00ff00 : 0xff0000;
 	b[line*640+172] =
@@ -299,7 +308,6 @@ static void draw_stuff(void)
 	int x1, y1;
 
 	/* tile data */
-
 	x1 = 320;
 	y1 = 0;
 	for(ty = 0; ty < 24; ty++)
@@ -340,7 +348,7 @@ static void draw_stuff(void)
 
 		t = mem_get_raw(mapaddr);
 
-		tileaddr = 0x8000 + t*16;
+		tileaddr = 0x9000 + (signed char)t*16;
 		b1 = mem_get_raw(tileaddr+y*2);
 		b2 = mem_get_raw(tileaddr+y*2+1);
 		b[(my*640*8)+(mx*8) + (y*640) + x1 + y1*640 + 0] = colours[(!!(b1&0x80))<<1 | !!(b2&0x80)];
@@ -386,11 +394,14 @@ static void draw_stuff(void)
 	}
 }
 
+#define GREEN "\033[32;1m"
+#define RESET "\033[0m"
 int lcd_cycle(void)
 {
 	int cycles = cpu_get_cycles();
 	int this_frame, subframe_cycles;
-	static int prev_line, prev_mode;
+	static int prev_line, prev_mode, prev_cycles;
+	static int draw_line, drawn_pixels;
 
 	if(sdl_update())
 		return 0;
@@ -398,7 +409,7 @@ int lcd_cycle(void)
 	this_frame = cycles % (70224/4);
 	lcd_line = this_frame / (456/4);
 	subframe_cycles = this_frame % (456/4);
-	
+
 	if(subframe_cycles < 80/4)
 		lcd_mode = 2;
 	else if(subframe_cycles < 252/4)
@@ -418,19 +429,46 @@ int lcd_cycle(void)
 	else if(oam_int && lcd_mode == 2 && prev_mode != 2)
 		interrupt(INTR_LCDSTAT);
 
-	if(lcd_line != prev_line && lcd_line < 144)
-		render_line(lcd_line);
+	{
+		int x, y;
+		int delta;
+		int start;
+
+		/* Actual x position of the 'real' LCD */
+		x = subframe_cycles*4 - 80;
+
+		/* New line has started, reset imaginary raster position and finish previous line if needed */
+		if(lcd_line != prev_line)
+		{
+			/* Line is unfinished and the current (prev_line) scanline is onscreen */
+			if(drawn_pixels < 160 && prev_line < 144)
+				render_line(prev_line, drawn_pixels, 160-drawn_pixels);
+			drawn_pixels = 0;
+		}
+
+		/* Imaginary raster position is onscreen, draw some pixels to catch up */
+		if(x > 0 && x < 160 && lcd_line < 144)
+		{
+//			printf(GREEN "%d %d %d %d\n" RESET, lcd_line, drawn_pixels, x - drawn_pixels, x);
+			render_line(lcd_line, drawn_pixels, x - drawn_pixels);
+			/* Update imaginary raster position to real raster position */
+			drawn_pixels = x;
+		}
+	}
 
 	if(prev_line == 143 && lcd_line == 144)
 	{
 		draw_stuff();
 		sdl_frame();
 		interrupt(INTR_VBLANK);
+		memset(sdl_get_framebuffer(), 0x440022, 640*144*4);
 	}
-	
+
 	prev_line = lcd_line;
 	prev_mode = lcd_mode;
-	
+
+	prev_cycles = cycles;
+
 	return 1;
 }
 

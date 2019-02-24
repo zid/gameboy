@@ -2042,10 +2042,10 @@ int cpu_cycle(void)
 			{
 				c.PC = mem_get_word(c.SP);
 				c.SP += 2;
-				c.cycles += 3;
+				c.cycles += 5;
 			} else {
 				c.PC += 1;
-				c.cycles += 1;
+				c.cycles += 2;
 			}
 		break;
 		case 0xC1:	/* POP BC */

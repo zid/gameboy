@@ -2191,10 +2191,11 @@ int cpu_cycle(void)
 			if(flag_C == 0)
 			{
 				c.PC = mem_get_word(c.PC+1);
+				c.cycles += 4;
 			} else {
 				c.PC += 3;
+				c.cycles += 3;
 			}
-			c.cycles += 3;
 		break;
 		case 0xD4:	/* CALL NC, mem16 */
 			if(flag_C == 0)

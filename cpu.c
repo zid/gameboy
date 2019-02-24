@@ -1098,7 +1098,7 @@ int cpu_cycle(void)
 			set_N(1);
 			set_H((t & 0xF) == 0xF);
 			c.PC += 1;
-			c.cycles += 1;
+			c.cycles += 3;
 		break;
 		case 0x36:	/* LD (HL), imm8 */
 			t = mem_get_byte(c.PC+1);

@@ -2117,7 +2117,7 @@ int cpu_cycle(void)
 		case 0xC9:	/* RET */
 			c.PC = mem_get_word(c.SP);
 			c.SP += 2;
-			c.cycles += 3;
+			c.cycles += 4;
 		break;
 		case 0xCA:	/* JP z, mem16 */
 			if(flag_Z == 1)

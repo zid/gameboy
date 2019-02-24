@@ -2242,6 +2242,12 @@ int cpu_cycle(void)
 				c.cycles += 2;
 			}
 		break;
+		case 0xD9:	/* RETI */
+			c.PC = mem_get_word(c.SP);
+			c.SP += 2;
+			c.cycles += 4;
+			interrupt_enable();
+			break;
 		case 0xDA:	/* JP C, mem16 */
 			if(flag_C)
 			{
@@ -2262,12 +2268,6 @@ int cpu_cycle(void)
 				c.PC += 3;
 				c.cycles += 3;
 			}
-		break;
-		case 0xD9:	/* RETI */
-			c.PC = mem_get_word(c.SP);
-			c.SP += 2;
-			c.cycles += 4;
-			interrupt_enable();
 		break;
 		case 0xDE:	/* SBC A, imm8 */
 			t = mem_get_byte(c.PC+1);

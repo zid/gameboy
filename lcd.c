@@ -98,6 +98,8 @@ void lcd_write_stat(unsigned char c)
 
 void lcd_write_control(unsigned char c)
 {
+	if(!bg_enabled && (c&1))
+		printf("BG reenabled %04X %d\n", cpu_getpc(), lcd_line);
 	bg_enabled            = !!(c & 0x01);
 	sprites_enabled       = !!(c & 0x02);
 	sprite_size           = !!(c & 0x04);
@@ -106,6 +108,9 @@ void lcd_write_control(unsigned char c)
 	window_enabled        = !!(c & 0x20);
 	window_tilemap_select = !!(c & 0x40);
 	lcd_enabled           = !!(c & 0x80);
+	if(!bg_enabled)
+		printf("BG disabled: %04X %d\n", cpu_getpc(), lcd_line);
+
 }
 
 unsigned char lcd_get_ly_compare(void)
@@ -197,6 +202,7 @@ static void draw_bg_and_window(unsigned int *b, int line, int ox, int d)
 
 		b1 = mem_get_raw(tile_addr+(ym%8)*2);
 		b2 = mem_get_raw(tile_addr+(ym%8)*2+1);
+
 		mask = 128>>(xm%8);
 		colour = (!!(b2&mask)<<1) | !!(b1&mask);
 		b[line*640 + x] = colours[bgpalette[colour]];
@@ -257,7 +263,6 @@ static void render_line(int line, int x, int d)
 {
 	int i;
 	static int c;
-
 	static struct sprite s[10];
 	unsigned int *b = sdl_get_framebuffer();
 
@@ -396,15 +401,13 @@ static void draw_stuff(void)
 
 #define GREEN "\033[32;1m"
 #define RESET "\033[0m"
+
 int lcd_cycle(void)
 {
 	int cycles = cpu_get_cycles();
 	int this_frame, subframe_cycles;
 	static int prev_line, prev_mode, prev_cycles;
 	static int draw_line, drawn_pixels;
-
-	if(sdl_update())
-		return 0;
 
 	this_frame = cycles % (70224/4);
 	lcd_line = this_frame / (456/4);
@@ -429,7 +432,7 @@ int lcd_cycle(void)
 	else if(oam_int && lcd_mode == 2 && prev_mode != 2)
 		interrupt(INTR_LCDSTAT);
 
-	{
+	if(lcd_line <= 144){
 		int x, y;
 		int delta;
 		int start;
@@ -460,6 +463,7 @@ int lcd_cycle(void)
 	{
 		draw_stuff();
 		sdl_frame();
+		if(sdl_update()) return 0;
 		interrupt(INTR_VBLANK);
 		memset(sdl_get_framebuffer(), 0x440022, 640*144*4);
 	}

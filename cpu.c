@@ -110,7 +110,7 @@ struct CPU {
 
 	unsigned short SP;
 	unsigned short PC;
-	unsigned int cycles;
+	unsigned int cycles, prev_cycles;
 };
 
 static struct CPU c;
@@ -126,6 +126,7 @@ void cpu_init(void)
 	c.SP = 0xFFFE;
 	c.PC = 0x0100;
 	c.cycles = 0;
+	c.prev_cycles = 0;
 }
 
 static void RLC(unsigned char reg)
@@ -750,7 +751,10 @@ void cpu_halt(void)
 {
 	halted = 1;
 }
-
+unsigned int cpu_getpc(void)
+{
+	return c.PC;
+}
 void cpu_interrupt(unsigned short vector)
 {
 	cpu_unhalt();
@@ -763,7 +767,7 @@ void cpu_interrupt(unsigned short vector)
 
 unsigned int cpu_get_cycles(void)
 {
-	return c.cycles;
+	return c.prev_cycles;
 }
 
 void cpu_print_debug(void)
@@ -778,7 +782,14 @@ int cpu_cycle(void)
 	unsigned char b, t;
 	unsigned short s;
 	unsigned int i;
-	
+	int xxx = c.cycles;
+
+	if(c.prev_cycles < c.cycles)
+	{
+		c.prev_cycles++;
+		return 1;
+	}
+
 	/* If any interrupts are pending, do them now */
 	interrupt_flush();
 
@@ -1358,7 +1369,7 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0x76:	/* HALT */
-			printf("CPU halted, IF: %02X, IE: %02X\n", interrupt_get_IF(), interrupt_get_mask() );
+//			printf("CPU halted, IF: %02X, IE: %02X\n", interrupt_get_IF(), interrupt_get_mask() );
 			halted = 1;
 			c.PC += 1;
 			c.cycles += 1;
@@ -2189,5 +2200,10 @@ int cpu_cycle(void)
 		break;
 	}
 
+	if(xxx == c.cycles)
+	{
+		printf("WARN: cpu cycles the same\n");
+	}
+	c.prev_cycles += 1;
 	return 1;
 }

@@ -32,7 +32,6 @@ int main(int argc, char *argv[])
 
 	while(1)
 	{
-
 		if(!cpu_cycle())
 			break;
 

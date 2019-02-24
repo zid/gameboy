@@ -19,10 +19,10 @@ static unsigned int joypad_masked = 1;
 
 static int interrupt_pending(void)
 {
-	if((vblank && !vblank_masked) 
+	if((vblank && !vblank_masked)
 		|| (lcdstat && !lcdstat_masked)
 		|| (timer   && !timer_masked)
-		|| (serial  && !serial_masked) 
+		|| (serial  && !serial_masked)
 		|| (joypad  && !joypad_masked)
 	)
 		return 1;

@@ -1917,7 +1917,7 @@ int cpu_cycle(void)
 			c.A ^= mem_get_byte(get_HL());
 			c.F = (!c.A)<<7;
 			c.PC += 1;
-			c.cycles += 1;
+			c.cycles += 2;
 		break;
 		case 0xAF:	/* XOR A */
 			c.A = 0;

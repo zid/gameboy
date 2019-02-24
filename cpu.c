@@ -2027,7 +2027,7 @@ int cpu_cycle(void)
 			set_N(1);
 			set_C((c.A - t) < 0);
 			c.PC += 1;
-			c.cycles += 1;
+			c.cycles += 2;
 		break;
 		case 0xBF:	/* CP A */
 			set_Z(1);

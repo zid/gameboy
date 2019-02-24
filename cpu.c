@@ -1867,7 +1867,7 @@ int cpu_cycle(void)
 			set_N(0);
 			set_C(0);
 			c.PC += 1;
-			c.cycles += 1;
+			c.cycles += 2;
 		break;
 		case 0xA7:	/* AND A */
 			set_H(1);

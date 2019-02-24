@@ -2123,10 +2123,11 @@ int cpu_cycle(void)
 			if(flag_Z == 1)
 			{
 				c.PC = mem_get_word(c.PC+1);
+				c.cycles += 4;
 			} else {
 				c.PC += 3;
+				c.cycles += 3;
 			}
-			c.cycles += 3;
 		break;
 		case 0xCB:	/* RLC/RRC/RL/RR/SLA/SRA/SWAP/SRL/BIT/RES/SET */
 			decode_CB(mem_get_byte(c.PC+1));

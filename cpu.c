@@ -875,7 +875,7 @@ int cpu_cycle(void)
 			set_N(0);
 			set_C(i > 0xFFFF);
 			c.PC += 1;
-			c.cycles += 3;
+			c.cycles += 2;
 		break;
 		case 0x1A:	/* LD A, (DE) */
 			c.A = mem_get_byte(get_DE());

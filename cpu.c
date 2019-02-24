@@ -1088,7 +1088,7 @@ int cpu_cycle(void)
 			set_N(0);
 			set_H((t & 0xF) == 0);
 			c.PC += 1;
-			c.cycles += 1;
+			c.cycles += 3;
 		break;
 		case 0x35:	/* DEC (HL) */
 			t = mem_get_byte(get_HL());

@@ -2101,7 +2101,7 @@ int cpu_cycle(void)
 			c.SP -= 2;
 			mem_write_word(c.SP, c.PC+1);
 			c.PC = 0;
-			c.cycles += 3;
+			c.cycles += 4;
 		break;
 		case 0xC8:	/* RET Z */
 			if(flag_Z == 1)

@@ -2213,7 +2213,7 @@ int cpu_cycle(void)
 			c.SP -= 2;
 			mem_write_word(c.SP, get_DE());
 			c.PC += 1;
-			c.cycles += 3;
+			c.cycles += 4;
 		break;
 		case 0xD6:	/* SUB A, imm8 */
 			t = mem_get_byte(c.PC+1);

@@ -2285,7 +2285,7 @@ int cpu_cycle(void)
 			c.SP -= 2;
 			mem_write_word(c.SP, c.PC+1);
 			c.PC = 0x0018;
-			c.cycles += 3;
+			c.cycles += 4;
 		break;
 		case 0xE0:	/* LD (FF00 + imm8), A */
 			t = mem_get_byte(c.PC+1);

@@ -32,6 +32,8 @@ static int interrupt_pending(void)
 /* Returns true if the cpu should remain halted */
 void interrupt_flush(void)
 {
+	unsigned int pending = 0;
+
 	if(!enabled)
 	{
 			/* An interrupt fired while the cpu was halted, but interrupts
@@ -42,32 +44,70 @@ void interrupt_flush(void)
 			return;
 	}
 
-	/* Interrupts are enabled - Check if any are pending */
 	if(vblank && !vblank_masked)
+		pending = INTR_VBLANK;
+	if(lcdstat && !lcdstat_masked)
+		pending |= INTR_LCDSTAT;
+	if(timer && !timer_masked)
+		pending |= INTR_TIMER;
+	if(serial && !serial_masked)
+		pending |= INTR_SERIAL;
+	if(joypad && !joypad_masked)
+		pending |= INTR_JOYPAD;
+
+	if(pending)
+		cpu_interrupt_begin();
+	else
+		return;
+
+	if(pending & INTR_VBLANK)
 	{
-		vblank = 0;
+		if(vblank_masked)
+			pending &= ~INTR_VBLANK;
+		else
+			vblank = 0;
+	}
+	if(pending & INTR_LCDSTAT)
+	{
+		if(lcdstat_masked)
+			pending &= ~INTR_LCDSTAT;
+		else
+			lcdstat = 0;
+	}
+	if(pending & INTR_TIMER)
+	{
+		if(timer_masked)
+			pending &= ~INTR_TIMER;
+		else
+			timer = 0;
+	}
+	if(pending & INTR_SERIAL)
+	{
+		if(serial_masked)
+			pending &= ~INTR_SERIAL;
+		else
+			serial = 0;
+	}
+	else if(pending & INTR_JOYPAD)
+	{
+		if(joypad_masked)
+			pending &= ~INTR_SERIAL;
+		else
+			serial = 0;
+	}
+
+	if(pending & INTR_VBLANK)
 		cpu_interrupt(0x40);
-	}
-	else if(lcdstat && !lcdstat_masked)
-	{
-		lcdstat = 0;
+	else if(pending & INTR_LCDSTAT)
 		cpu_interrupt(0x48);
-	}
-	else if(timer && !timer_masked)
-	{
-		timer = 0;
+	else if(pending & INTR_TIMER)
 		cpu_interrupt(0x50);
-	}
-	else if(serial && !serial_masked)
-	{
-		serial = 0;
+	else if(pending & INTR_SERIAL)
 		cpu_interrupt(0x58);
-	}
-	else if(joypad && !joypad_masked)
-	{
-		joypad = 0;
+	else if(pending & INTR_JOYPAD)
 		cpu_interrupt(0x60);
-	}
+	else
+		cpu_interrupt(0x00);
 }
 
 void interrupt_enable(void)

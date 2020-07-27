@@ -1,5 +1,7 @@
 #include <SDL/SDL.h>
 #include <sys/time.h>
+#include <windows.h>
+#include <stdio.h>
 static SDL_Surface *screen;
 static unsigned int frames;
 static struct timeval tv1, tv2;
@@ -118,6 +120,7 @@ void sdl_frame(void)
 		gettimeofday(&tv2, NULL);
 		printf("Frames %d, seconds: %d, fps: %d\n", frames, tv2.tv_sec - tv1.tv_sec, frames/(tv2.tv_sec - tv1.tv_sec));
 	}
+	Sleep(16);
 	SDL_Flip(screen);
 }
 

@@ -197,7 +197,9 @@ void mem_write_byte(unsigned short d, unsigned char i)
 void mem_write_word(unsigned short d, unsigned short i)
 {
 	mem[d] = i&0xFF;
-	mem[d+1] = i>>8;
+	//mem_write_byte(d, i&0xFF);
+	mem_write_byte(d+1, i>>8);
+//	mem[d+1] = i>>8;
 }
 
 void mem_init(void)

@@ -751,17 +751,23 @@ void cpu_halt(void)
 {
 	halted = 1;
 }
+
 unsigned int cpu_getpc(void)
 {
 	return c.PC;
 }
-void cpu_interrupt(unsigned short vector)
+
+void cpu_interrupt_begin(void)
 {
 	cpu_unhalt();
 
 	c.SP -= 2;
 	mem_write_word(c.SP, c.PC);
-	c.PC = vector;
+}
+
+void cpu_interrupt(unsigned short n)
+{
+	c.PC = n;
 	interrupt_disable();
 }
 
@@ -805,7 +811,7 @@ int cpu_cycle(void)
 	/* Otherwise, execute as normal */
 	b = mem_get_byte(c.PC);
 #ifdef EBUG
-	
+		is_debugged = 1;
 #endif
 	if(is_debugged)
 	{

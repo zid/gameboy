@@ -219,8 +219,12 @@ static void lcd_do_line(int line, int cycle)
 		return;
 	}
 
-	if(cycle < 80)
+	if(lcd_mode != 2 && cycle < 80)
+	{
 		lcd_mode = 2;
+		if(oam_int)
+			interrupt(INTR_LCDSTAT);
+	}
 	else
 		if(lcd_mode == 2 && cycle >= 80)
 		{
@@ -241,9 +245,9 @@ static void lcd_do_line(int line, int cycle)
 		int bgcol, sprcol = -1;
 		int *pal;
 
-		if(line >= window_y && window_enabled && line - window_y < 144 && (window_x-7) <= line_fill)
+		if(line >= window_y && window_enabled && line - window_y < 144 && (window_x-8) <= line_fill)
 		{
-			xm = line_fill - (window_x-8);
+			xm = line_fill - (window_x-7);
 			ym = window_lines;
 			map_select = window_tilemap_select;
 			window_used = 1;
@@ -334,6 +338,8 @@ early:
 			if(window_used)
 				window_lines++;
 			window_used = 0;
+			if(hblank_int)
+				interrupt(INTR_LCDSTAT);
 		}
 	}
 }
@@ -362,6 +368,8 @@ int lcd_cycle(void)
 			return 0;
 
 		sdl_frame();
+		if(vblank_int)
+			interrupt(INTR_LCDSTAT);
 		interrupt(INTR_VBLANK);
 	}
 

@@ -120,6 +120,11 @@ void interrupt_disable(void)
 	enabled = 0;
 }
 
+int interrupt_get_enabled(void)
+{
+	return enabled;
+}
+
 void interrupt(unsigned int n)
 {
 	/* This interrupt is now pending */

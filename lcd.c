@@ -32,7 +32,7 @@ static int window_x, window_y;
 static int bgpalette[] = {3, 2, 1, 0};
 static int sprpalette1[] = {0, 1, 2, 3};
 static int sprpalette2[] = {0, 1, 2, 3};
-static unsigned long colours[4] = {0xFFFFFF, 0xC0C0C0, 0x808080, 0x000000};
+static unsigned long colours[4] = {0xF4FFF4, 0xC0D0C0, 0x80A080, 0x001000};
 
 struct sprite {
 	int y, x, tile, flags;
@@ -132,7 +132,12 @@ void lcd_set_window_x(unsigned char n) {
 	window_x = n;
 }
 
-#define POKE(x, y, c) do { assert((x) <= 455); assert((y) < 154); b[(y)*640 + (x)] = (c); } while(0)
+#define POKE(x, y, c) do { assert((x) <= 455); assert((y) < 154); \
+	b[(y)*2*640 + (x)*2] = (c); \
+	b[(y)*2*640 + (x)*2 + 1] = (c); \
+	b[((y)*2+1)*640 + (x)*2] = (c); \
+	b[((y)*2+1)*640 + (x)*2 + 1] = (c); \
+	} while(0)
 
 static void swap(struct sprite *a, struct sprite *b)
 {
@@ -238,7 +243,7 @@ static void lcd_do_line(int line, int cycle)
 
 		if(line >= window_y && window_enabled && line - window_y < 144 && (window_x-7) <= line_fill)
 		{
-			xm = line_fill - (window_x-7);
+			xm = line_fill - (window_x-8);
 			ym = window_lines;
 			map_select = window_tilemap_select;
 			window_used = 1;
@@ -286,7 +291,8 @@ skip_bg:
 			if(spr[i].x + 7 < line_fill || spr[i].x > line_fill)
 				continue;
 
-			sprite_line = 0;
+			fetch_delay += 1;
+
 			if(spr[i].flags & VFLIP)
 				sprite_line = (sprite_size ? 15 : 7) - (line - spr[i].y);
 			else
@@ -317,9 +323,10 @@ skip_bg:
 		else
 			colour = colours[pal[sprcol]];
 
+early:
 		POKE(line_fill, line, colour);
 
-		if(line_fill++ == 160)
+		if(line_fill++ == 159)
 		{
 			lcd_mode = 0;
 			line_fill = 0;

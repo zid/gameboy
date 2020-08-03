@@ -52,6 +52,9 @@ int sdl_update(void)
 				case SDLK_UP:
 					button_up = 1;
 				break;
+				case SDLK_F1:
+					cpu_print_debug();
+				break;
 				case SDLK_ESCAPE:
 					return 1;
 			}

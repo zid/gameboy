@@ -46,11 +46,11 @@ int main(int argc, char *argv[])
 			if(!lcd_cycle())
 				goto out;
 			r++;
+
+			timer_cycle();
 		}
 
 		r = now;
-
-		timer_cycle();
 	}
 out:
 	sdl_quit();

@@ -781,6 +781,7 @@ void cpu_print_debug(void)
 	printf("%04X: %02X\n", c.PC, mem_get_byte(c.PC));
 	printf("\tAF: %02X%02X, BC: %02X%02X, DE: %02X%02X, HL: %02X%02X SP: %04X, cycles %d\n",
 		c.A, c.F, c.B, c.C, c.D, c.E, c.H, c.L, c.SP, c.cycles, halted);
+	printf("Halted: %d, IME: %d, IF: %X, Mask: %X\n", halted, interrupt_get_enabled(), interrupt_get_IF(), interrupt_get_mask());
 }
 
 int cpu_cycle(void)
@@ -2009,7 +2010,7 @@ int cpu_cycle(void)
 			c.SP += 2;
 			c.cycles += 4;
 			interrupt_enable();
-			break;
+		break;
 		case 0xDA:	/* JP C, mem16 */
 			if(flag_C)
 			{

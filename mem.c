@@ -86,6 +86,9 @@ unsigned char mem_get_byte(unsigned short i)
 		break;
 	}
 
+	if(i > 0x8000 && i < 0x9FFF && (lcd_get_stat() & 2) == 3)
+		return 0xFF;
+
 	return mem[i];
 }
 
@@ -190,6 +193,9 @@ void mem_write_byte(unsigned short d, unsigned char i)
 			return;
 		break;
 	}
+
+	if(d > 0x8000 && d < 0x9FFF && (lcd_get_stat() & 2) == 3)
+		i = 0xFF;
 	
 	mem[d] = i;
 }

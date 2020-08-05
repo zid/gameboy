@@ -789,7 +789,6 @@ int cpu_cycle(void)
 	unsigned char b, t;
 	unsigned short s;
 	unsigned int i;
-	int xxx = c.cycles;
 
 	if(c.prev_cycles < c.cycles)
 	{
@@ -803,17 +802,17 @@ int cpu_cycle(void)
 	/* If the cpu is halted, do nothing instead */
 	if(halted)
 	{
-		if(is_debugged)
-			printf("Cpu is halted, cycles++, %d\n", halted);
 		c.cycles += 1;
 		return 1;
 	}
 
 	/* Otherwise, execute as normal */
 	b = mem_get_byte(c.PC);
+
 #ifdef EBUG
-		is_debugged = 1;
+	is_debugged = 1;
 #endif
+
 	if(is_debugged)
 	{
 		cpu_print_debug();
@@ -1376,8 +1375,8 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0x76:	/* HALT */
-//			printf("CPU halted, IF: %02X, IE: %02X\n", interrupt_get_IF(), interrupt_get_mask() );
 			halted = 1;
+
 			c.PC += 1;
 			c.cycles += 1;
 		break;
@@ -2212,10 +2211,6 @@ int cpu_cycle(void)
 		break;
 	}
 
-	if(xxx == c.cycles)
-	{
-		printf("WARN: cpu cycles the same\n");
-	}
 	c.prev_cycles += 1;
 	return 1;
 }

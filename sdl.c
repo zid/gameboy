@@ -1,5 +1,5 @@
 #include <SDL/SDL.h>
-#include <sys/time.h>
+//#include <sys/time.h>
 #include <windows.h>
 #include <stdio.h>
 static SDL_Surface *screen;
@@ -112,16 +112,16 @@ unsigned int *sdl_get_framebuffer(void)
 
 void sdl_frame(void)
 {
-	if(frames == 0)
-		gettimeofday(&tv1, NULL);
-	
+	//if(frames == 0)
+	//	gettimeofday(&tv1, NULL);
+	//
 	frames++;
-	if(frames % 1000 == 0)
-	{
-		gettimeofday(&tv2, NULL);
-		printf("Frames %d, seconds: %d, fps: %d\n", frames, tv2.tv_sec - tv1.tv_sec, frames/(tv2.tv_sec - tv1.tv_sec));
-	}
-	Sleep(16);
+	//if(frames % 1000 == 0)
+	//{
+	//	gettimeofday(&tv2, NULL);
+	//	printf("Frames %d, seconds: %d, fps: %d\n", frames, tv2.tv_sec - tv1.tv_sec, frames/(tv2.tv_sec - tv1.tv_sec));
+	//}
+	Sleep(17);
 	SDL_Flip(screen);
 }
 

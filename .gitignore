@@ -8,3 +8,8 @@ gameboy
 *.ini
 *.o
 *.diff
+
+# VS ignores
+x64/
+x86/
+.vs/

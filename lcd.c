@@ -29,7 +29,7 @@ static int bg_enabled;
 static int scroll_x, scroll_y;
 static int window_x, window_y;
 
-static int bgpalette[] = {3, 2, 1, 0};
+static int bgpalette[] = {0, 3, 3, 3};
 static int sprpalette1[] = {0, 1, 2, 3};
 static int sprpalette2[] = {0, 1, 2, 3};
 static unsigned long colours[4] = {0xF4FFF4, 0xC0D0C0, 0x80A080, 0x001000};
@@ -245,7 +245,7 @@ static void lcd_do_line(int line, int cycle)
 		int bgcol, sprcol = -1;
 		int *pal;
 
-		if(line >= window_y && window_enabled && line - window_y < 144 && (window_x-8) <= line_fill)
+		if(line >= window_y && window_enabled && line - window_y < 144 && (window_x - 7) <= line_fill)
 		{
 			xm = line_fill - (window_x-7);
 			ym = window_lines;
@@ -338,6 +338,7 @@ early:
 			if(window_used)
 				window_lines++;
 			window_used = 0;
+			scx_low_latch = 0;
 			if(hblank_int)
 				interrupt(INTR_LCDSTAT);
 		}

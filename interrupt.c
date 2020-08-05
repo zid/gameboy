@@ -17,32 +17,15 @@ static unsigned int timer_masked = 1;
 static unsigned int serial_masked = 1;
 static unsigned int joypad_masked = 1;
 
-static int interrupt_pending(void)
-{
-	if((vblank && !vblank_masked)
-		|| (lcdstat && !lcdstat_masked)
-		|| (timer   && !timer_masked)
-		|| (serial  && !serial_masked)
-		|| (joypad  && !joypad_masked)
-	)
-		return 1;
-	return 0;
-}
-
-/* Returns true if the cpu should remain halted */
 void interrupt_flush(void)
 {
 	unsigned int pending = 0;
 
+	if(cpu_halted() && (vblank || lcdstat || timer || serial || joypad))
+		cpu_unhalt();
+
 	if(!enabled)
-	{
-			/* An interrupt fired while the cpu was halted, but interrupts
-			 * were disabled, just resume the cpu.
-			 */
-			if(cpu_halted() && interrupt_pending())
-				cpu_unhalt();
-			return;
-	}
+		return;
 
 	if(vblank && !vblank_masked)
 		pending = INTR_VBLANK;
@@ -108,6 +91,11 @@ void interrupt_flush(void)
 		cpu_interrupt(0x60);
 	else
 		cpu_interrupt(0x00);
+}
+
+int interrupt_enabled(void)
+{
+	return enabled;
 }
 
 void interrupt_enable(void)

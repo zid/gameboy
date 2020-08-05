@@ -10,6 +10,8 @@ unsigned char interrupt_get_mask(void);
 void interrupt_set_mask(unsigned char);
 void interrupt_flush(void);
 unsigned short interrupt_vector_for(int);
+int interrupt_get_enabled(void);
+
 enum {
 	INTR_VBLANK  = 0x01,
 	INTR_LCDSTAT = 0x02,

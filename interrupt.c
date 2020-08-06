@@ -17,11 +17,23 @@ static unsigned int timer_masked = 1;
 static unsigned int serial_masked = 1;
 static unsigned int joypad_masked = 1;
 
+static int interrupt_pending(void)
+{
+	if((vblank && !vblank_masked)
+		|| (lcdstat && !lcdstat_masked)
+		|| (timer   && !timer_masked)
+		|| (serial  && !serial_masked)
+		|| (joypad  && !joypad_masked)
+	)
+		return 1;
+	return 0;
+}
+
 void interrupt_flush(void)
 {
 	unsigned int pending = 0;
 
-	if(cpu_halted() && (vblank || lcdstat || timer || serial || joypad))
+	if(cpu_halted() && interrupt_pending())
 		cpu_unhalt();
 
 	if(!enabled)
@@ -74,9 +86,9 @@ void interrupt_flush(void)
 	else if(pending & INTR_JOYPAD)
 	{
 		if(joypad_masked)
-			pending &= ~INTR_SERIAL;
+			pending &= ~INTR_JOYPAD;
 		else
-			serial = 0;
+			joypad = 0;
 	}
 
 	if(pending & INTR_VBLANK)

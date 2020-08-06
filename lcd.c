@@ -5,6 +5,7 @@
 #include "mem.h"
 
 #include <assert.h>
+#include <string.h>
 
 static int lcd_cycles;
 static int lcd_line, prev_line;
@@ -185,7 +186,6 @@ static int sprites_update(int line, struct sprite *spr)
 		spr[c].tile  = mem_get_raw(0xFE00 + (i*4) + 2);
 		spr[c].flags = mem_get_raw(0xFE00 + (i*4) + 3);
 		c++;
-
 		if(c == 10)
 		{
 			break;
@@ -198,12 +198,75 @@ static int sprites_update(int line, struct sprite *spr)
 	return c;
 }
 
+struct oam_cache
+{
+	char colour;
+	char prio;
+	char pal;
+};
+
+static void sprite_fetch(int line, struct oam_cache *o)
+{
+	struct sprite spr[10];
+	int i, x, sprite_count;
+
+	/* Fetch up to 10 in-range sprites for this scanline */
+	sprite_count = sprites_update(line, spr);
+
+	memset(o, 0, sizeof (struct oam_cache[160]));
+
+	/* Copy sprite pixels to oam_cache */
+	for(i = 0; i < sprite_count; i++)
+	{
+		int sprite_line;
+		unsigned short tile_addr;
+		unsigned char b1, b2, mask;
+
+		/* Sprite is too far right to ever render anything */
+		if(spr[i].x >= 160)
+			continue;
+
+
+		if(spr[i].flags & VFLIP)
+			sprite_line = (sprite_size ? 15 : 7) - (line - spr[i].y);
+		else
+			sprite_line = line - spr[i].y;
+
+		if(sprite_size)
+			tile_addr = 0x8000 + (spr[i].tile & 0xFE) * 16 + sprite_line * 2;
+		else
+			tile_addr = 0x8000 + spr[i].tile * 16 + sprite_line * 2;
+
+		b1 = mem_get_raw(tile_addr);
+		b2 = mem_get_raw(tile_addr + 1);
+
+
+		for(x = spr[i].x; x < spr[i].x + 8; x++)
+		{
+			int relx, new_col;
+
+			/* Sprite pixel is off the left hand side of the screen */
+			if(x < 0)
+				continue;
+
+			relx = x - spr[i].x;
+
+			mask = spr[i].flags & HFLIP ? 128>>(7-relx) : 128>>relx;
+			new_col = (!!(b2&mask))<<1 | !!(b1&mask);
+
+			if(!o[x].colour) o[x].colour = new_col;
+			o[x].prio = spr[i].flags & PRIO;
+			o[x].pal = spr[i].flags & PNUM;
+		}
+	}
+}
+
 /* Process scanline 'line', cycle 'cycle' within that line */
 static void lcd_do_line(int line, int cycle)
 {
 	unsigned int *b = sdl_get_framebuffer();
-	static struct sprite spr[10] = {0};
-	static int line_fill = 0, fetch_delay = 0, sprite_count = 0, window_lines = 0, window_used = 0;
+	static struct oam_cache o[160];
+	static int line_fill = 0, fetch_delay = 0, window_lines = 0, window_used = 0;
 	static unsigned char scx_low_latch = 0;
 
 	if(fetch_delay)
@@ -229,7 +292,7 @@ static void lcd_do_line(int line, int cycle)
 		if(lcd_mode == 2 && cycle >= 80)
 		{
 			scx_low_latch = scroll_x & 7;
-			sprite_count = sprites_update(line, spr);
+			sprite_fetch(line, o);
 			lcd_mode = 3;
 		}
 
@@ -238,12 +301,10 @@ static void lcd_do_line(int line, int cycle)
 
 	if(lcd_mode == 3)
 	{
-		int colour = 0, i, prio = 0;
-
+		struct oam_cache *oc;
+		int colour = 0, bgcol;
 		unsigned int map_select, map_offset, tile_num, tile_addr, xm, ym;
 		unsigned char b1, b2, mask;
-		int bgcol, sprcol = -1;
-		int *pal;
 
 		if(line >= window_y && window_enabled && line - window_y < 144 && (window_x - 7) <= line_fill)
 		{
@@ -281,60 +342,24 @@ static void lcd_do_line(int line, int cycle)
 		bgcol = (!!(b2&mask)<<1) | !!(b1&mask);
 
 skip_bg:
-		for(i = 0; i < sprite_count; i++)
+		oc = &o[line_fill];
+
+		if(sprites_enabled && oc->colour && ((oc->prio && !bgcol) || (!oc->prio)))
 		{
-			int sprite_line, tile_addr, b1, b2, x;
-			unsigned char mask;
-
-			if(!sprites_enabled)
-				break;
-
-			if(spr[i].x < -7)
-				continue;
-
-			if(spr[i].x + 7 < line_fill || spr[i].x > line_fill)
-				continue;
-
-			fetch_delay += 1;
-
-			if(spr[i].flags & VFLIP)
-				sprite_line = (sprite_size ? 15 : 7) - (line - spr[i].y);
-			else
-				sprite_line = line - spr[i].y;
-
-			if(sprite_size)
-				tile_addr = 0x8000 + (spr[i].tile & 0xFE) * 16 + sprite_line * 2;
-			else
-				tile_addr = 0x8000 + spr[i].tile * 16 + sprite_line * 2;
-
-			b1 = mem_get_raw(tile_addr);
-			b2 = mem_get_raw(tile_addr + 1);
-
-			x = line_fill - spr[i].x;
-
-			mask = spr[i].flags & HFLIP ? 128>>(7-x) : 128>>x;
-			sprcol = (!!(b2&mask))<<1 | !!(b1&mask);
-			if(!sprcol)
-				continue;
-
-			pal = (spr[i].flags & PNUM) ? sprpalette2 : sprpalette1;
-
-			break;
+			int *pal = oc->pal ? sprpalette2 : sprpalette1;
+			colour = colours[pal[(int)oc->colour]];
+		}
+		else
+		{
+			colour = colours[bgpalette[bgcol]];
 		}
 
-		if(sprcol <= 0 || ((spr[i].flags & PRIO) && bgcol != 0))
-			colour = colours[bgpalette[bgcol]];
-		else
-			colour = colours[pal[sprcol]];
-
-early:
 		POKE(line_fill, line, colour);
 
 		if(line_fill++ == 159)
 		{
 			lcd_mode = 0;
 			line_fill = 0;
-			sprite_count = 0;
 			if(window_used)
 				window_lines++;
 			window_used = 0;

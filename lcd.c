@@ -226,7 +226,6 @@ static void sprite_fetch(int line, struct oam_cache *o)
 		if(spr[i].x >= 160)
 			continue;
 
-
 		if(spr[i].flags & VFLIP)
 			sprite_line = (sprite_size ? 15 : 7) - (line - spr[i].y);
 		else
@@ -249,12 +248,17 @@ static void sprite_fetch(int line, struct oam_cache *o)
 			if(x < 0)
 				continue;
 
+			/* This pixel is offscreen, we're done with this sprite */
+			if(x >= 160)
+				break;
+
 			relx = x - spr[i].x;
 
 			mask = spr[i].flags & HFLIP ? 128>>(7-relx) : 128>>relx;
 			new_col = (!!(b2&mask))<<1 | !!(b1&mask);
 
-			if(!o[x].colour) o[x].colour = new_col;
+			if(!o[x].colour)
+				o[x].colour = new_col;
 			o[x].prio = spr[i].flags & PRIO;
 			o[x].pal = spr[i].flags & PNUM;
 		}

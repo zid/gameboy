@@ -195,9 +195,11 @@ void mem_write_byte(unsigned short d, unsigned char i)
 		break;
 	}
 
-	if(d > 0x8000 && d < 0x9FFF && (lcd_get_stat() & 2) == 3)
+#if 0
+	/* Too broken to work yet */
+	if(d > 0x8000 && d < 0x9FFF && (lcd_get_stat() & 3) == 3)
 		i = 0xFF;
-	
+#endif
 	mem[d] = i;
 }
 

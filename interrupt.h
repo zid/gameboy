@@ -11,6 +11,7 @@ void interrupt_set_mask(unsigned char);
 void interrupt_flush(void);
 unsigned short interrupt_vector_for(int);
 int interrupt_get_enabled(void);
+int interrupt_pending(void);
 
 enum {
 	INTR_VBLANK  = 0x01,

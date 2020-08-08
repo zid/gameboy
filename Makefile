@@ -1,8 +1,8 @@
 SRC = $(wildcard *.c)
 OBJ = $(SRC:.c=.o)
 
-CFLAGS=-march=native -O2 -Wextra -Wall -Wno-switch -std=c99
-LDFLAGS=-lSDL
+CFLAGS=-march=native -O2 -W -Wextra -Wall -Wno-switch -std=c99 -g
+LDFLAGS=-lSDL2
 
 all: clean gameboy
 
@@ -16,4 +16,4 @@ gameboy: $(OBJ)
 	$(CC) $(CFLAGS) -flto $^ -c 
 
 clean:
-	rm -f gameboy gameboy.exe
+	rm -f gameboy gameboy.exe *.o

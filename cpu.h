@@ -8,4 +8,5 @@ void cpu_interrupt_begin(void);
 void cpu_interrupt(unsigned short);
 void cpu_unhalt(void);
 int cpu_halted(void);
+void cpu_print_debug();
 #endif

@@ -745,9 +745,6 @@ static int halt_bug = 0;
 void cpu_unhalt(void)
 {
 	halted = 0;
-
-	if(!interrupt_get_enabled())
-		halt_bug = 1;
 }
 
 void cpu_halt(void)
@@ -776,9 +773,9 @@ void cpu_interrupt(unsigned short n)
 
 void cpu_print_debug(void)
 {
-	printf("%04X: %02X\n", c.PC, mem_get_byte(c.PC));
+	printf("%04X: %02X (%02X %02X)\n", c.PC, mem_get_byte(c.PC), mem_get_raw(0x40), mem_get_raw(0x41));
 	printf("\tAF: %02X%02X, BC: %02X%02X, DE: %02X%02X, HL: %02X%02X SP: %04X, cycles %d\n",
-		c.A, c.F, c.B, c.C, c.D, c.E, c.H, c.L, c.SP, c.cycles, halted);
+		c.A, c.F, c.B, c.C, c.D, c.E, c.H, c.L, c.SP, c.cycles);
 	printf("Halted: %d, IME: %d, IF: %X, Mask: %X\n", halted, interrupt_get_enabled(), interrupt_get_IF(), interrupt_get_mask());
 }
 
@@ -804,10 +801,12 @@ int cpu_cycle(void)
 		return 1;
 	}
 
-
 #ifdef EBUG
 	is_debugged = 1;
 #endif
+
+	if(is_debugged)
+		cpu_print_debug();
 
 	/* Otherwise, execute as normal */
 	b = mem_get_byte(c.PC);
@@ -1331,8 +1330,18 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0x76:	/* HALT */
-			if(!interrupt_get_enabled() && interrupt_pending())
+			if(interrupt_get_enabled())
+			{
 				halted = 1;
+				c.cycles += 1;
+				break;
+			}
+
+			if(!interrupt_pending())
+				halted = 1;
+			else
+				halt_bug = 1;
+
 			c.cycles += 1;
 		break;
 		case 0x77:	/* LD (HL), A */

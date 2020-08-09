@@ -108,6 +108,7 @@ struct CPU {
 static struct CPU c;
 static int is_debugged;
 static int halted;
+static int ei_flag;
 
 void cpu_init(void)
 {
@@ -792,7 +793,13 @@ int cpu_cycle(void)
 	}
 
 	/* If any interrupts are pending, do them now */
-	interrupt_flush();
+	if(!ei_flag)
+		interrupt_flush();
+	else
+	{
+		ei_flag = 0;
+		interrupt_enable();
+	}
 
 	/* If the cpu is halted, do nothing instead */
 	if(halted)
@@ -2102,6 +2109,9 @@ int cpu_cycle(void)
 			c.cycles += 4;
 		break;
 		case 0xFB:	/* EI */
+			if(!interrupt_get_enabled())
+				ei_flag = 1;
+
 			interrupt_enable();
 			c.cycles += 1;
 		break;

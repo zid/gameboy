@@ -186,10 +186,9 @@ static int sprites_update(int line, struct sprite *spr)
 		spr[c].tile  = mem_get_raw(0xFE00 + (i*4) + 2);
 		spr[c].flags = mem_get_raw(0xFE00 + (i*4) + 3);
 		c++;
+
 		if(c == 10)
-		{
 			break;
-		}
 	}
 
 	if(c)
@@ -239,7 +238,6 @@ static void sprite_fetch(int line, struct oam_cache *o)
 		b1 = mem_get_raw(tile_addr);
 		b2 = mem_get_raw(tile_addr + 1);
 
-
 		for(x = spr[i].x; x < spr[i].x + 8; x++)
 		{
 			int relx, new_col;
@@ -257,8 +255,12 @@ static void sprite_fetch(int line, struct oam_cache *o)
 			mask = spr[i].flags & HFLIP ? 128>>(7-relx) : 128>>relx;
 			new_col = (!!(b2&mask))<<1 | !!(b1&mask);
 
-			if(!o[x].colour)
-				o[x].colour = new_col;
+			/* We've already drawn this pixel, don't overwrite */
+			if(o[x].colour)
+				continue;
+
+			/* Pixel was blank, put our pixel's details in */
+			o[x].colour = new_col;
 			o[x].prio = spr[i].flags & PRIO;
 			o[x].pal = spr[i].flags & PNUM;
 		}
@@ -300,7 +302,7 @@ static void lcd_do_line(int line, int cycle)
 			lcd_mode = 3;
 		}
 
-	if(cycle < 86)
+	if(cycle < 93)
 		return;
 
 	if(lcd_mode == 3)
@@ -385,24 +387,26 @@ int lcd_cycle(void)
 	/* Each scanline is 456 cycles */
 	lcd_line = leftover / 456;
 
-	if(lcd_line != prev_line && ly_int && lcd_line == lcd_ly_compare)
+	if(lcd_enabled)
 	{
-		interrupt(INTR_LCDSTAT);
-	}
-
-	lcd_do_line(lcd_line, leftover % 456);
-
-	if(lcd_line == 144 && prev_line == 143)
-	{
-		if(sdl_update())
-			return 0;
-
-		sdl_frame();
-		if(vblank_int)
+		if(lcd_line != prev_line && ly_int && lcd_line == lcd_ly_compare)
+		{
 			interrupt(INTR_LCDSTAT);
-		interrupt(INTR_VBLANK);
-	}
+		}
 
+		lcd_do_line(lcd_line, leftover % 456);
+
+		if(lcd_line == 144 && prev_line == 143)
+		{
+			if(sdl_update())
+				return 0;
+
+			sdl_frame();
+			if(vblank_int)
+				interrupt(INTR_LCDSTAT);
+			interrupt(INTR_VBLANK);
+		}
+	}
 	prev_line = lcd_line;
 
 	lcd_cycles++;

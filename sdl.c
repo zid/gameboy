@@ -11,7 +11,7 @@ static int button_start, button_select, button_a, button_b, button_down, button_
 void sdl_init(void)
 {
 	SDL_Init(SDL_INIT_VIDEO);
-	screen = SDL_SetVideoMode(640, 480, 32, SDL_HWSURFACE | SDL_DOUBLEBUF);
+	screen = SDL_SetVideoMode(640, 576, 32, SDL_HWSURFACE | SDL_DOUBLEBUF);
 	SDL_WM_SetCaption("Fer is an ejit", NULL);
 }
 
@@ -114,7 +114,7 @@ void sdl_frame(void)
 {
 	if(frames == 0)
 		gettimeofday(&tv1, NULL);
-	
+
 	frames++;
 	if(frames % 1000 == 0)
 	{

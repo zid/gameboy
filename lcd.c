@@ -99,11 +99,16 @@ void lcd_write_stat(unsigned char c)
 	hblank_int = c&0x08;
 }
 
+static unsigned int *b;
+
 void lcd_write_control(unsigned char c)
 {
 	/* LCD just got turned on */
 	if(!lcd_enabled && (c & 0x80))
+	{
+		b = sdl_get_framebuffer();
 		lcd_cycles = 0;
+	}
 
 	bg_enabled            = !!(c & 0x01);
 	sprites_enabled       = !!(c & 0x02);
@@ -133,12 +138,28 @@ void lcd_set_window_x(unsigned char n) {
 	window_x = n;
 }
 
-#define POKE(x, y, c) do { assert((x) <= 455); assert((y) < 154); \
-	b[(y)*2*640 + (x)*2] = (c); \
-	b[(y)*2*640 + (x)*2 + 1] = (c); \
-	b[((y)*2+1)*640 + (x)*2] = (c); \
-	b[((y)*2+1)*640 + (x)*2 + 1] = (c); \
-	} while(0)
+static void POKE(unsigned int x, int y, int c)
+{
+	b[(y*4+0)*640 + x*4+0] = c;
+	b[(y*4+0)*640 + x*4+1] = c;
+	b[(y*4+0)*640 + x*4+2] = c;
+	b[(y*4+0)*640 + x*4+3] = c;
+
+	b[(y*4+1)*640 + x*4+0] = c;
+	b[(y*4+1)*640 + x*4+1] = c;
+	b[(y*4+1)*640 + x*4+2] = c;
+	b[(y*4+1)*640 + x*4+3] = c;
+
+	b[(y*4+2)*640 + x*4+0] = c;
+	b[(y*4+2)*640 + x*4+1] = c;
+	b[(y*4+2)*640 + x*4+2] = c;
+	b[(y*4+2)*640 + x*4+3] = c;
+
+	b[(y*4+3)*640 + x*4+0] = c;
+	b[(y*4+3)*640 + x*4+1] = c;
+	b[(y*4+3)*640 + x*4+2] = c;
+	b[(y*4+3)*640 + x*4+3] = c;
+}
 
 static void swap(struct sprite *a, struct sprite *b)
 {
@@ -270,9 +291,8 @@ static void sprite_fetch(int line, struct oam_cache *o)
 /* Process scanline 'line', cycle 'cycle' within that line */
 static void lcd_do_line(int line, int cycle)
 {
-	unsigned int *b = sdl_get_framebuffer();
 	static struct oam_cache o[160];
-	static int line_fill = 0, fetch_delay = 0, window_lines = 0, window_used = 0;
+	static int line_fill = 0, fetch_delay = 0, window_lines = 0, window_used = -1;
 	static unsigned char scx_low_latch = 0;
 
 	if(fetch_delay)
@@ -312,7 +332,10 @@ static void lcd_do_line(int line, int cycle)
 		unsigned int map_select, map_offset, tile_num, tile_addr, xm, ym;
 		unsigned char b1, b2, mask;
 
-		if(line >= window_y && window_enabled && line - window_y < 144 && (window_x - 7) <= line_fill)
+		if(window_used == -1 && line == window_y)
+			window_used = 0;
+
+		if(window_used > 0 && line >= window_y && window_enabled && line - window_y < 144 && (window_x - 7) <= line_fill)
 		{
 			xm = line_fill - (window_x-7);
 			ym = window_lines;
@@ -366,7 +389,7 @@ skip_bg:
 		{
 			lcd_mode = 0;
 			line_fill = 0;
-			if(window_used)
+			if(window_used > 0)
 				window_lines++;
 			window_used = 0;
 			scx_low_latch = 0;
@@ -380,33 +403,34 @@ int lcd_cycle(void)
 {
 	int leftover;
 
-
 	/* Amount of cycles left over since the last full frame */
 	leftover = lcd_cycles % (456 * 154);
 
 	/* Each scanline is 456 cycles */
 	lcd_line = leftover / 456;
 
-	if(lcd_enabled)
+	if(lcd_enabled && lcd_line != prev_line && ly_int && lcd_line == lcd_ly_compare)
 	{
-		if(lcd_line != prev_line && ly_int && lcd_line == lcd_ly_compare)
-		{
-			interrupt(INTR_LCDSTAT);
-		}
+		interrupt(INTR_LCDSTAT);
+	}
 
+	if(lcd_enabled)
 		lcd_do_line(lcd_line, leftover % 456);
 
-		if(lcd_line == 144 && prev_line == 143)
-		{
-			if(sdl_update())
-				return 0;
+	if(lcd_line == 144 && prev_line == 143)
+	{
+		if(sdl_update())
+			return 0;
 
-			sdl_frame();
+		sdl_frame();
+		if(lcd_enabled)
+		{
 			if(vblank_int)
 				interrupt(INTR_LCDSTAT);
 			interrupt(INTR_VBLANK);
 		}
 	}
+
 	prev_line = lcd_line;
 
 	lcd_cycles++;

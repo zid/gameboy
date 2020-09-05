@@ -43,12 +43,16 @@ int main(int argc, char *argv[])
 
 		while(now != r)
 		{
-			if(!lcd_cycle())
-				goto out;
-			r++;
+			int i;
 
-			timer_cycle();
+			for(i = 0; i < 4; i++)
+				if(!lcd_cycle())
+					goto out;
+
+			r++;
 		}
+
+		timer_cycle();
 
 		r = now;
 	}

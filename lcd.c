@@ -289,8 +289,8 @@ static void sprite_fetch(int line, struct oam_cache *o)
 static void lcd_do_line(int line, int cycle)
 {
 	static struct oam_cache o[160];
-	static int line_fill = 0, fetch_delay = 0, window_lines = 0, window_used = -1;
-	static unsigned char scx_low_latch = 0;
+	static int line_fill, fetch_delay, window_lines, window_used_line, window_used_frame;
+	static unsigned char scx_low_latch;
 
 	if(fetch_delay)
 	{
@@ -301,7 +301,8 @@ static void lcd_do_line(int line, int cycle)
 	if(line >= 144)
 	{
 		lcd_mode = 1;
-		window_lines =  0;
+		window_lines = 0;
+		window_used_frame = 0;
 		return;
 	}
 
@@ -329,18 +330,21 @@ static void lcd_do_line(int line, int cycle)
 		unsigned int map_select, map_offset, tile_num, tile_addr, xm, ym;
 		unsigned char b1, b2, mask;
 
-		if(window_used == -1 && line == window_y)
-			window_used = 0;
-
-		if(window_used > 0 && line >= window_y && window_enabled && line - window_y < 144 && (window_x - 7) <= line_fill)
+		if(line >= window_y && window_enabled && line - window_y < 144 && (window_x - 7) <= line_fill)
 		{
+			if(!window_used_frame && line == window_y)
+				window_used_frame = 1;
+
+			if(!window_used_frame)
+				goto bg;
 			xm = line_fill - (window_x-7);
 			ym = window_lines;
 			map_select = window_tilemap_select;
-			window_used = 1;
+			window_used_line = 1;
 		}
 		else
 		{
+			bg:
 			if(!bg_enabled)
 			{
 				bgcol = 0;
@@ -386,9 +390,9 @@ skip_bg:
 		{
 			lcd_mode = 0;
 			line_fill = 0;
-			if(window_used > 0)
+			if(window_used_line)
 				window_lines++;
-			window_used = 0;
+			window_used_line = 0;
 			scx_low_latch = 0;
 			if(hblank_int)
 				interrupt(INTR_LCDSTAT);

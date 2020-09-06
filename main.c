@@ -19,10 +19,14 @@ int main(int argc, char *argv[])
 	r = rom_load(argv[1]);
 	if(!r)
 		return 0;
-
-	sdl_init();
-
+	
 	printf("ROM OK!\n");
+
+	r = lcd_init();
+	if(r)
+		return 0;
+	
+	printf("LCD OK!\n");
 
 	mem_init();
 	printf("Mem OK!\n");

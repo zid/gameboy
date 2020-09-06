@@ -8,11 +8,21 @@ static struct timeval tv1, tv2;
 
 static int button_start, button_select, button_a, button_b, button_down, button_up, button_left, button_right;
 
-void sdl_init(void)
+int sdl_init(void)
 {
-	SDL_Init(SDL_INIT_VIDEO);
+	int r;
+	
+	r = SDL_Init(SDL_INIT_VIDEO);
+	if(r == -1)
+		return 1;
+
 	screen = SDL_SetVideoMode(640, 576, 32, SDL_HWSURFACE | SDL_DOUBLEBUF);
+	if(!screen)
+		return 1;
+	
 	SDL_WM_SetCaption("Fer is an ejit", NULL);
+	
+	return 0;
 }
 
 int sdl_update(void)

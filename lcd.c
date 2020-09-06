@@ -105,10 +105,7 @@ void lcd_write_control(unsigned char c)
 {
 	/* LCD just got turned on */
 	if(!lcd_enabled && (c & 0x80))
-	{
-		b = sdl_get_framebuffer();
 		lcd_cycles = 0;
-	}
 
 	bg_enabled            = !!(c & 0x01);
 	sprites_enabled       = !!(c & 0x02);
@@ -438,3 +435,18 @@ int lcd_cycle(void)
 	return 1;
 }
 
+int lcd_init(void)
+{
+	int r;
+	
+	r = sdl_init();
+	if(r)
+		return 1;
+
+	b = sdl_get_framebuffer();
+	
+	/* Boot rom does this */
+	lcd_write_control(0x91);
+	
+	return 0;
+}

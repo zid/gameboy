@@ -10,7 +10,11 @@
 #include "cpu.h"
 
 static unsigned char *mem;
-static int DMA_pending = 0;
+
+static int DMA_pending;
+static unsigned char *DMA_src;
+static int DMA_fill;
+
 static int joypad_select_buttons, joypad_select_directions;
 
 void mem_bank_switch(unsigned int n)
@@ -21,7 +25,7 @@ void mem_bank_switch(unsigned int n)
 }
 
 /* LCD's access to VRAM */
-inline unsigned char mem_get_raw(unsigned short p)
+unsigned char mem_get_raw(unsigned short p)
 {
 	return mem[p];
 }
@@ -35,9 +39,17 @@ unsigned char mem_get_byte(unsigned short i)
 	{
 		elapsed = cpu_get_cycles() - DMA_pending;
 		if(elapsed >= 160)
+		{
+			memcpy(&mem[0xFE00+DMA_fill], DMA_src+DMA_fill, elapsed-DMA_fill);
+
 			DMA_pending = 0;
+			DMA_src = 0;
+			DMA_fill = 0;
+		}
 		else
 		{
+			memcpy(&mem[0xFE00+DMA_fill], DMA_src+DMA_fill, elapsed-DMA_fill);
+			DMA_fill = elapsed;
 			return mem[0xFE00+elapsed];
 		}
 	}
@@ -89,7 +101,7 @@ unsigned char mem_get_byte(unsigned short i)
 	if(i >= 0xE000 && i <= 0xFDFF)
 		i -= 0x2000;
 
-	if(i > 0x8000 && i < 0x9FFF && (lcd_get_stat() & 2) == 3)
+	if(i > 0x8000 && i < 0x9FFF && (lcd_get_stat() & 3) == 3)
 		return 0xFF;
 
 	return mem[i];
@@ -103,13 +115,22 @@ unsigned short mem_get_word(unsigned short i)
 	{
 		elapsed = cpu_get_cycles() - DMA_pending;
 		if(elapsed >= 160)
+		{
+			memcpy(&mem[0xFE00+DMA_fill], DMA_src+DMA_fill, elapsed-DMA_fill);
+
 			DMA_pending = 0;
+			DMA_src = 0;
+			DMA_fill = 0;
+		}
 		else
 		{
+			memcpy(&mem[0xFE00+DMA_fill], DMA_src+DMA_fill, elapsed-DMA_fill);
+			DMA_fill = elapsed;
 			return mem[0xFE00+elapsed];
 		}
 	}
-	return mem[i] | (mem[i+1]<<8);
+
+	return mem_get_byte(i) | (mem_get_byte(i+1)<<8);
 }
 
 void mem_write_byte(unsigned short d, unsigned char i)
@@ -176,8 +197,9 @@ void mem_write_byte(unsigned short d, unsigned char i)
 		break;
 		case 0xFF46: /* OAM DMA */
 			/* Copy bytes from i*0x100 to OAM */
-			memcpy(&mem[0xFE00], &mem[i*0x100], 0xA0);
+//			memcpy(&mem[0xFE00], &mem[i*0x100], 0xA0);
 			DMA_pending = cpu_get_cycles();
+			DMA_src = &mem[i*0x100];
 		break;
 		case 0xFF47:
 			lcd_write_bg_palette(i);
@@ -198,10 +220,10 @@ void mem_write_byte(unsigned short d, unsigned char i)
 		break;
 	}
 
-#if 0
+#if 1
 	/* Too broken to work yet */
 	if(d > 0x8000 && d < 0x9FFF && (lcd_get_stat() & 3) == 3)
-		i = 0xFF;
+		return;
 #endif
 
 	if(d >= 0xE000 && d <= 0xFDFF)

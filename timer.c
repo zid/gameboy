@@ -17,6 +17,7 @@ void timer_set_div(unsigned char v)
 {
 	(void) v;
 	divider = 0;
+	ticks = 0;
 }
 
 unsigned char timer_get_div(void)
@@ -63,19 +64,17 @@ static void timer_tick(void)
 	ticks++;
 
 	/* Divider updates at 16384Hz */
-	if(ticks == 16)
+	if((ticks % 16) == 0)
 	{
 		divider++;
-		ticks = 0;
 	}
 
 	if(!started)
 		return;
 
-	if(ticks == speed)
+	if((ticks % speed) == 0)
 	{
 		counter++;
-		ticks = 0;
 	}
 
 	if(counter == 0x100)

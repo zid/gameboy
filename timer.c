@@ -3,26 +3,24 @@
 #include "cpu.h"
 
 static unsigned int prev_time;
-static unsigned int elapsed;
 static unsigned int ticks;
 
 static unsigned char tac;
 static unsigned int started;
 static unsigned int speed;
 static unsigned int counter;
-static unsigned int divider;
 static unsigned int modulo;
 
 void timer_set_div(unsigned char v)
 {
 	(void) v;
-	divider = 0;
+
 	ticks = 0;
 }
 
 unsigned char timer_get_div(void)
 {
-	return divider;
+	return ticks>>8;
 }
 
 void timer_set_counter(unsigned char v)
@@ -47,7 +45,8 @@ unsigned char timer_get_modulo(void)
 
 void timer_set_tac(unsigned char v)
 {
-	int speeds[] = {64, 1, 4, 16};
+	int speeds[] = {1024, 16, 64, 256};
+
 	tac = v;
 	started = v&4;
 	speed = speeds[v&3];
@@ -58,16 +57,10 @@ unsigned char timer_get_tac(void)
 	return tac;
 }
 
-static void timer_tick(void)
+static void timer_tick(int delta)
 {
-	/* 1/262144Hz has elapsed */
-	ticks++;
-
-	/* Divider updates at 16384Hz */
-	if((ticks % 16) == 0)
-	{
-		divider++;
-	}
+	/* cpu.c uses 1MHz ticks not 4MHz, convert */
+	ticks += delta * 4;
 
 	if(!started)
 		return;
@@ -90,10 +83,5 @@ void timer_cycle(void)
 	unsigned int delta = cpu_get_cycles() - prev_time;
 	prev_time = cpu_get_cycles();
 
-	elapsed += delta * 4; /* 4 cycles to a timer tick */
-	if(elapsed >= 16)
-	{
-		timer_tick();
-		elapsed -= 16;	/* keep track of the time overflow */
-	}
+	timer_tick(delta);
 }

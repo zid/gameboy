@@ -82,7 +82,11 @@ void lcd_write_scroll_y(unsigned char n)
 
 int lcd_get_line(void)
 {
+#ifdef DEBUG
+	return 0x90;
+#else
 	return lcd_line;
+#endif
 }
 
 unsigned char lcd_get_stat(void)
@@ -442,15 +446,16 @@ int lcd_cycle(void)
 int lcd_init(void)
 {
 	int r;
-	
+
 	r = sdl_init();
 	if(r)
 		return 1;
 
 	b = sdl_get_framebuffer();
-	
-	/* Boot rom does this */
-	lcd_write_control(0x91);
-	
+
+#ifdef DEBUG
+	lcd_write_control(91);
+#endif
+
 	return 0;
 }

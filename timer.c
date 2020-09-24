@@ -95,6 +95,7 @@ static void timer_tick(int delta)
 			reload = 0;
 			counter = modulo;
 			reloaded = 1;
+			interrupt(INTR_TIMER);
 		}
 
 		old_ticks = ticks;
@@ -110,7 +111,6 @@ static void timer_tick(int delta)
 
 		if(counter == 0x100)
 		{
-			interrupt(INTR_TIMER);
 			counter = 0;
 			reload = 1;
 		}

@@ -3,17 +3,27 @@
 #include "cpu.h"
 
 static unsigned int prev_time;
-static unsigned int ticks;
+static unsigned short ticks = 0;
+static unsigned int reload;
+static unsigned int reloaded;
 
 static unsigned char tac;
 static unsigned int started;
 static unsigned int speed;
-static unsigned int counter;
+static unsigned short counter;
 static unsigned int modulo;
 
+/* Any write to this register resets the timer */
 void timer_set_div(unsigned char v)
 {
 	(void) v;
+	unsigned int bit;
+
+	bit = speed >> 1;
+
+	/* Counter is incremented if the high bit transitions 1->0 */
+	if(ticks & bit)
+		counter++;
 
 	ticks = 0;
 }
@@ -25,7 +35,10 @@ unsigned char timer_get_div(void)
 
 void timer_set_counter(unsigned char v)
 {
-	counter = v;
+	if(reload)
+		reload = 0;
+	if(!reloaded)
+		counter = v;
 }
 
 unsigned char timer_get_counter(void)
@@ -35,6 +48,8 @@ unsigned char timer_get_counter(void)
 
 void timer_set_modulo(unsigned char v)
 {
+	if(reloaded)
+		counter = v;
 	modulo = v;
 }
 
@@ -48,8 +63,16 @@ void timer_set_tac(unsigned char v)
 	int speeds[] = {1024, 16, 64, 256};
 
 	tac = v;
+
+	/* TAC high -> low */
+	if(started && !(v&4))
+	{
+		if(ticks & (speed >> 1))
+			ticks++;
+	}
 	started = v&4;
 	speed = speeds[v&3];
+
 }
 
 unsigned char timer_get_tac(void)
@@ -59,28 +82,47 @@ unsigned char timer_get_tac(void)
 
 static void timer_tick(int delta)
 {
-	/* cpu.c uses 1MHz ticks not 4MHz, convert */
-	ticks += delta * 4;
-
-	if(!started)
-		return;
-
-	if((ticks % speed) == 0)
+	while(delta--)
 	{
-		counter++;
-	}
+		unsigned int old_ticks;
 
-	if(counter == 0x100)
-	{
-		interrupt(INTR_TIMER);
-		counter = modulo;
+		if(reloaded)
+			reloaded = 0;
+
+		/* Delays the counter reload by a tick */
+		if(reload)
+		{
+			reload = 0;
+			counter = modulo;
+			reloaded = 1;
+		}
+
+		old_ticks = ticks;
+		/* Our CPU runs at 1MHz, timer is 4MHz */
+		ticks += 4;
+
+		if(!started)
+			continue;
+
+		if(((old_ticks & (speed>>1)))
+		 && (ticks & (speed>>1)) == 0)
+			counter++;
+
+		if(counter == 0x100)
+		{
+			interrupt(INTR_TIMER);
+			counter = 0;
+			reload = 1;
+		}
 	}
 }
 
 void timer_cycle(void)
 {
 	/* The amount of ticks since we last ran */
-	unsigned int delta = cpu_get_cycles() - prev_time;
+	unsigned int delta;
+
+	delta = cpu_get_cycles() - prev_time;
 	prev_time = cpu_get_cycles();
 
 	timer_tick(delta);

@@ -1,26 +1,58 @@
-#include <SDL/SDL.h>
-#include <sys/time.h>
-#include <windows.h>
-#include <stdio.h>
-static SDL_Surface *screen;
-static unsigned int frames;
-static struct timeval tv1, tv2;
+#include <SDL2/SDL.h>
+#include <stdlib.h>
+#include "cpu.h"
 
-static int button_start, button_select, button_a, button_b, button_down, button_up, button_left, button_right;
+static unsigned int frames;
+
+static SDL_Window   *window;
+static SDL_Surface  *surface;
+
+static int button_start, button_select;
+static int button_a, button_b;
+static int button_down, button_up, button_left, button_right;
+static int button_debug, button_quit;
+
+struct keymap
+{
+	SDL_Scancode code;
+	int *key;
+	void (*f)(void);
+	int prev;
+};
+
+static void debug()
+{
+	cpu_print_debug();
+}
+
+static struct keymap keys[] =
+{
+	{SDL_SCANCODE_A,     &button_a,      NULL, 0},
+	{SDL_SCANCODE_S,     &button_b,      NULL, 0},
+	{SDL_SCANCODE_D,     &button_select, NULL, 0},
+	{SDL_SCANCODE_F,     &button_start,  NULL, 0},
+	{SDL_SCANCODE_LEFT,  &button_left,   NULL, 0},
+	{SDL_SCANCODE_RIGHT, &button_right,  NULL, 0},
+	{SDL_SCANCODE_UP,    &button_up,     NULL, 0},
+	{SDL_SCANCODE_DOWN,  &button_down,   NULL, 0},
+	{SDL_SCANCODE_ESCAPE,   &button_quit,   NULL, 0},
+	{SDL_SCANCODE_F1,    &button_debug, debug, 0}
+};
+
 
 int sdl_init(void)
 {
-	int r;
-	
-	r = SDL_Init(SDL_INIT_VIDEO);
-	if(r == -1)
-		return 1;
+	SDL_Init(SDL_INIT_EVERYTHING);
 
-	screen = SDL_SetVideoMode(640, 576, 32, SDL_HWSURFACE | SDL_DOUBLEBUF);
-	if(!screen)
-		return 1;
-	
-	SDL_WM_SetCaption("Fer is an ejit", NULL);
+	window = SDL_CreateWindow(
+		"Fer is an ejit",
+		SDL_WINDOWPOS_UNDEFINED,
+		SDL_WINDOWPOS_UNDEFINED,
+		640, 576,
+		SDL_WINDOW_INPUT_FOCUS
+	);
+
+	surface = SDL_GetWindowSurface(window);
 	
 	return 0;
 }
@@ -28,80 +60,42 @@ int sdl_init(void)
 int sdl_update(void)
 {
 	SDL_Event e;
+	const unsigned char *keystates;
+	size_t i;
+
+	keystates = SDL_GetKeyboardState(NULL);
 
 	while(SDL_PollEvent(&e))
 	{
 		if(e.type == SDL_QUIT)
 			return 1;
-
-		if(e.type == SDL_KEYDOWN)
-		{
-			switch(e.key.keysym.sym)
-			{
-				case SDLK_a:
-					button_a = 1;
-				break;
-				case SDLK_s:
-					button_b = 1;
-				break;
-				case SDLK_d:
-					button_select = 1;
-				break;
-				case SDLK_f:
-					button_start = 1;
-				break;
-				case SDLK_LEFT:
-					button_left = 1;
-				break;
-				case SDLK_RIGHT:
-					button_right = 1;
-				break;
-				case SDLK_DOWN:
-					button_down = 1;
-				break;
-				case SDLK_UP:
-					button_up = 1;
-				break;
-				case SDLK_F1:
-					cpu_print_debug();
-				break;
-				case SDLK_ESCAPE:
-					return 1;
-			}
-		}
-
-		if(e.type == SDL_KEYUP)
-		{
-			switch(e.key.keysym.sym)
-			{
-				case SDLK_a:
-					button_a = 0;
-				break;
-				case SDLK_s:
-					button_b = 0;
-				break;
-				case SDLK_d:
-					button_select = 0;
-				break;
-				case SDLK_f:
-					button_start = 0;
-				break;
-				case SDLK_LEFT:
-					button_left = 0;
-				break;
-				case SDLK_RIGHT:
-					button_right = 0;
-				break;
-				case SDLK_DOWN:
-					button_down = 0;
-				break;
-				case SDLK_UP:
-					button_up = 0;
-				break;
-			}
-		}
-
 	}
+
+	for(i = 0; i < sizeof (keys) / sizeof (struct keymap); i++)
+	{
+		if(!keystates[keys[i].code])
+		{
+			if(keys[i].key)
+				*(keys[i].key) = 0;
+			continue;
+		}
+
+		if(keys[i].f && keys[i].prev == 0)
+		{
+			*(keys[i].key) = 1;
+			keys[i].f();
+		}
+
+		keys[i].prev = *(keys[i].key);
+		*(keys[i].key) = keystates[keys[i].code];
+	}
+
+	if(button_quit)
+	{
+		printf("frames: %d\n", frames);
+		return 1;
+	}
+
 	return 0;
 }
 
@@ -117,22 +111,14 @@ unsigned int sdl_get_directions(void)
 
 unsigned int *sdl_get_framebuffer(void)
 {
-	return screen->pixels;
+	return surface->pixels;
 }
 
 void sdl_frame(void)
 {
-	if(frames == 0)
-		gettimeofday(&tv1, NULL);
-
 	frames++;
-	if(frames % 1000 == 0)
-	{
-		gettimeofday(&tv2, NULL);
-		printf("Frames %d, seconds: %d, fps: %d\n", frames, tv2.tv_sec - tv1.tv_sec, frames/(tv2.tv_sec - tv1.tv_sec));
-	}
-	Sleep(16);
-	SDL_Flip(screen);
+
+	SDL_UpdateWindowSurface(window);
 }
 
 void sdl_quit()

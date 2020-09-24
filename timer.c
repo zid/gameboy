@@ -68,11 +68,11 @@ void timer_set_tac(unsigned char v)
 	if(started && !(v&4))
 	{
 		if(ticks & (speed >> 1))
-			ticks++;
+			counter++;
 	}
+
 	started = v&4;
 	speed = speeds[v&3];
-
 }
 
 unsigned char timer_get_tac(void)

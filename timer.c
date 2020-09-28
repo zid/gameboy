@@ -23,8 +23,14 @@ void timer_set_div(unsigned char v)
 
 	/* Counter is incremented if the high bit transitions 1->0 */
 	if(ticks & bit)
+	{
 		counter++;
-
+		if(counter == 0x100)
+		{
+			counter = 0;
+			reload = 1;
+		}
+	}
 	ticks = 0;
 }
 
@@ -68,7 +74,24 @@ void timer_set_tac(unsigned char v)
 	if(started && !(v&4))
 	{
 		if(ticks & (speed >> 1))
+		{
 			counter++;
+			if(counter == 0x100)
+			{
+				counter = 0;
+				reload = 1;
+			}
+		}
+	}
+
+	if(ticks & (speed >> 1) && !(ticks & (speeds[v&3]>>1)))
+	{
+		counter++;
+		if(counter == 0x100)
+		{
+			counter = 0;
+			reload = 1;
+		}
 	}
 
 	started = v&4;

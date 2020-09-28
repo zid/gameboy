@@ -37,8 +37,8 @@ static int bootrom_enabled = 1;
 
 static unsigned char *mem;
 
-static int DMA_pending;
-static unsigned char *DMA_src;
+static unsigned int DMA_pending;
+static unsigned short DMA_src;
 static int DMA_fill;
 
 static int joypad_select_buttons, joypad_select_directions;
@@ -64,12 +64,13 @@ unsigned char mem_get_byte(unsigned short i)
 	if(i < 0x100 && bootrom_enabled)
 		return bootrom[i];
 
-	if(DMA_pending && i < 0xFF80)
+	if(DMA_pending && DMA_pending <= cpu_get_cycles() && i < 0xFF00)
 	{
 		elapsed = cpu_get_cycles() - DMA_pending;
 		if(elapsed >= 160)
 		{
-			memcpy(&mem[0xFE00+DMA_fill], DMA_src+DMA_fill, elapsed-DMA_fill);
+			elapsed = 160;
+			memcpy(&mem[0xFE00+DMA_fill], &mem[DMA_src+DMA_fill], elapsed-DMA_fill);
 
 			DMA_pending = 0;
 			DMA_src = 0;
@@ -77,14 +78,21 @@ unsigned char mem_get_byte(unsigned short i)
 		}
 		else
 		{
-			memcpy(&mem[0xFE00+DMA_fill], DMA_src+DMA_fill, elapsed-DMA_fill);
+			memcpy(&mem[0xFE00+DMA_fill], &mem[DMA_src+DMA_fill], elapsed-DMA_fill);
 			DMA_fill = elapsed;
-			return mem[0xFE00+elapsed];
+
+			/* Reading from OAM during DMA always gives 0xFF */
+			if(i >= 0xFE00)
+				return 0xFF;
+
+			/* !A ^ B checks if A and B are both 0 or both 1 */
+			if(!(((DMA_src >> 13) == 4) ^ ((i >> 13) == 4)))
+				/* Return the currently transferring byte if addr matches the DMA source */
+				return mem[0xFE00+elapsed];
+
+			return mem[i];
 		}
 	}
-
-	if(i < 0xFF00)
-		return mem[i];
 
 	switch(i)
 	{
@@ -138,30 +146,6 @@ unsigned char mem_get_byte(unsigned short i)
 
 unsigned short mem_get_word(unsigned short i)
 {
-	unsigned long elapsed;
-
-	if(i < 0x100 && bootrom_enabled)
-		return bootrom[i] | bootrom[i+1]<<8;
-
-	if(DMA_pending && i < 0xFF80)
-	{
-		elapsed = cpu_get_cycles() - DMA_pending;
-		if(elapsed >= 160)
-		{
-			memcpy(&mem[0xFE00+DMA_fill], DMA_src+DMA_fill, elapsed-DMA_fill);
-
-			DMA_pending = 0;
-			DMA_src = 0;
-			DMA_fill = 0;
-		}
-		else
-		{
-			memcpy(&mem[0xFE00+DMA_fill], DMA_src+DMA_fill, elapsed-DMA_fill);
-			DMA_fill = elapsed;
-			return mem[0xFE00+elapsed];
-		}
-	}
-
 	return mem_get_byte(i) | (mem_get_byte(i+1)<<8);
 }
 
@@ -195,7 +179,6 @@ void mem_write_byte(unsigned short d, unsigned char i)
 			joypad_select_directions = i&0x10;
 		break;
 		case 0xFF01: /* Link port data */
-//			fprintf(stderr, "%c", i);
 		break;
 		case 0xFF04:
 			timer_set_div(i);
@@ -228,10 +211,12 @@ void mem_write_byte(unsigned short d, unsigned char i)
 			lcd_set_ly_compare(i);
 		break;
 		case 0xFF46: /* OAM DMA */
-			/* Copy bytes from i*0x100 to OAM */
-//			memcpy(&mem[0xFE00], &mem[i*0x100], 0xA0);
-			DMA_pending = cpu_get_cycles();
-			DMA_src = &mem[i*0x100];
+			/* This is the dead cycle where OAM DMA is busy, can't restart */
+			if(DMA_pending >= cpu_get_cycles())
+				break;
+			/* Start or restart OAM DMA */
+			DMA_pending = cpu_get_cycles()+2;
+			DMA_src = i*0x100;
 		break;
 		case 0xFF47:
 			lcd_write_bg_palette(i);
@@ -262,6 +247,7 @@ void mem_write_byte(unsigned short d, unsigned char i)
 		return;
 #endif
 
+	/* RAM mirror */
 	if(d >= 0xE000 && d <= 0xFDFF)
 		d -= 0x2000;
 
@@ -270,10 +256,8 @@ void mem_write_byte(unsigned short d, unsigned char i)
 
 void mem_write_word(unsigned short d, unsigned short i)
 {
-	mem[d] = i&0xFF;
-	//mem_write_byte(d, i&0xFF);
+	mem_write_byte(d, i&0xFF);
 	mem_write_byte(d+1, i>>8);
-//	mem[d+1] = i>>8;
 }
 
 void mem_init(void)
@@ -285,6 +269,7 @@ void mem_init(void)
 	memcpy(&mem[0x0000], &bytes[0x0000], 0x4000);
 	memcpy(&mem[0x4000], &bytes[0x4000], 0x4000);
 
+	mem[0xFF02] = 0x7E;
 	mem[0xFF10] = 0x80;
 	mem[0xFF11] = 0xBF;
 	mem[0xFF12] = 0xF3;

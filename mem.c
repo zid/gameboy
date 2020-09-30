@@ -87,10 +87,7 @@ unsigned char mem_get_byte(unsigned short i)
 
 			/* !A ^ B checks if A and B are both 0 or both 1 */
 			if(!(((DMA_src >> 13) == 4) ^ ((i >> 13) == 4)))
-				/* Return the currently transferring byte if addr matches the DMA source */
 				return mem[0xFE00+elapsed];
-
-			return mem[i];
 		}
 	}
 
@@ -138,8 +135,9 @@ unsigned char mem_get_byte(unsigned short i)
 	if(i >= 0xE000 && i <= 0xFDFF)
 		i -= 0x2000;
 
-	if(i > 0x8000 && i < 0x9FFF && (lcd_get_stat() & 3) == 3)
+	if(i >= 0x8000 && i <= 0x9FFF && (lcd_get_stat() & 3) == 3)
 		return 0xFF;
+
 
 	return mem[i];
 }
@@ -214,9 +212,11 @@ void mem_write_byte(unsigned short d, unsigned char i)
 			/* This is the dead cycle where OAM DMA is busy, can't restart */
 			if(DMA_pending >= cpu_get_cycles())
 				break;
+
 			/* Start or restart OAM DMA */
 			DMA_pending = cpu_get_cycles()+2;
 			DMA_src = i*0x100;
+			DMA_fill = 0;
 		break;
 		case 0xFF47:
 			lcd_write_bg_palette(i);

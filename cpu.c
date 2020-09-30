@@ -806,12 +806,15 @@ void cpu_interrupt_begin(void)
 
 	c.SP -= 2;
 	mem_write_word(c.SP, c.PC);
+	c.cycles += 2;
 }
 
 void cpu_interrupt(unsigned short n)
 {
 	c.PC = n;
+	c.cycles += 2;
 	interrupt_disable();
+	c.cycles += 1;
 }
 
 void cpu_print_debug(void)
@@ -848,6 +851,7 @@ int cpu_cycle(void)
 	if(c.PC == 0xC0BD && is_debugged)
 	{is_debugged = 0; exit(0);}
 #endif
+
 	if(is_debugged)
 		cpu_print_debug();
 
@@ -1951,10 +1955,20 @@ int cpu_cycle(void)
 			}
 		break;
 		case 0xCD:	/* call imm16 */
+			c.cycles += 1;
+			timer_cycle();
+
+			i = mem_get_byte(c.PC);
+			c.cycles += 1;
+			timer_cycle();
+			i |= mem_get_byte(c.PC+1)<<8;
+			c.cycles += 2;
+			timer_cycle();
+
 			c.SP -= 2;
 			mem_write_word(c.SP, c.PC+2);
-			c.PC = mem_get_word(c.PC);
-			c.cycles += 6;
+			c.PC = i;
+			c.cycles += 2;
 		break;
 		case 0xCE:	/* ADC a, imm8 */
 			t = mem_get_byte(c.PC);
@@ -2130,14 +2144,16 @@ int cpu_cycle(void)
 			c.cycles += 4;
 		break;
 		case 0xE8:	/* ADD SP, imm8 */
+			c.cycles += 1;
+			timer_cycle();
 			i = mem_get_byte(c.PC);
+			c.PC += 1;
 			set_Z(0);
 			set_N(0);
 			set_C(((c.SP+i)&0xFF) < (c.SP&0xFF));
 			set_H(((c.SP+i)&0xF) < (c.SP&0xF));
-			c.SP = c.SP + (signed char)i;
-			c.PC += 1;
-			c.cycles += 4;
+			c.SP += (signed char)i;
+			c.cycles += 3;
 		break;
 		case 0xE9:	/* JP HL */
 			c.PC = get_HL();
@@ -2205,6 +2221,8 @@ int cpu_cycle(void)
 			c.cycles += 4;
 		break;
 		case 0xF8:	/* LD HL, SP + imm8 */
+			c.cycles += 1;
+			timer_cycle();
 			i = mem_get_byte(c.PC);
 			set_N(0);
 			set_Z(0);
@@ -2212,7 +2230,7 @@ int cpu_cycle(void)
 			set_H(((c.SP+i)&0xF) < (c.SP&0xF));
 			set_HL(c.SP + (signed char)i);
 			c.PC += 1;
-			c.cycles += 3;
+			c.cycles += 2;
 		break;
 		case 0xF9:	/* LD SP, HL */
 			c.SP = get_HL();

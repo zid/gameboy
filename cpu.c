@@ -127,6 +127,30 @@ void cpu_init(void)
 	is_debugged = 0;
 }
 
+static unsigned short get_word_ticked(unsigned short i)
+{
+	unsigned short word;
+
+	word = mem_get_byte(i);
+	c.cycles += 1;
+	timer_cycle();
+	word |= (mem_get_byte(i+1)<<8);
+	c.cycles += 1;
+	timer_cycle();
+
+	return word;
+}
+
+static void write_word_ticked(unsigned short d, unsigned short i)
+{
+	mem_write_byte(d+1, i >> 8);
+	c.cycles += 1;
+	timer_cycle();
+	mem_write_byte(d, i & 0xFF);
+	c.cycles += 1;
+	timer_cycle();
+}
+
 static void RLC(unsigned char reg)
 {
 	unsigned char t, old;
@@ -1851,51 +1875,63 @@ int cpu_cycle(void)
 			CPR(c.A);
 		break;
 		case 0xC0:	/* RET NZ */
-			if(!flag_Z)
+			if(flag_Z == 0)
 			{
-				c.PC = mem_get_word(c.SP);
+				c.cycles += 2;
+				timer_cycle();
+				c.PC = get_word_ticked(c.SP);
 				c.SP += 2;
-				c.cycles += 5;
+				c.cycles += 1;
 			} else {
 				c.cycles += 2;
 			}
 		break;
 		case 0xC1:	/* POP BC */
-			s = mem_get_word(c.SP);
+			c.cycles += 1;
+			timer_cycle();
+			s = get_word_ticked(c.SP);
 			set_BC(s);
 			c.SP += 2;
-			c.cycles += 3;
 		break;
 		case 0xC2:	/* JP NZ, mem16 */
 			if(flag_Z == 0)
 			{
-				c.PC = mem_get_word(c.PC);
-				c.cycles += 4;
+				c.cycles += 1;
+				timer_cycle();
+				c.PC = get_word_ticked(c.PC);
+				c.cycles += 1;
 			} else {
 				c.PC += 2;
 				c.cycles += 3;
 			}
 		break;
 		case 0xC3:	/* JP imm16 */
-			c.PC = mem_get_word(c.PC);
-			c.cycles += 4;
+			c.cycles += 1;
+			timer_cycle();
+			c.PC = get_word_ticked(c.PC);
+			c.cycles += 1;
 		break;
 		case 0xC4:	/* CALL NZ, imm16 */
+			c.cycles += 1;
+			timer_cycle();
 			if(flag_Z == 0)
 			{
+				i = get_word_ticked(c.PC);
+				c.cycles += 1;
+				timer_cycle();
 				c.SP -= 2;
-				mem_write_word(c.SP, c.PC+2);
-				c.PC = mem_get_word(c.PC);
-				c.cycles += 6;
+				write_word_ticked(c.SP, c.PC+2);
+				c.PC = i;
 			} else {
 				c.PC += 2;
-				c.cycles += 3;
+				c.cycles += 2;
 			}
 		break;
 		case 0xC5:	/* PUSH BC */
 			c.SP -= 2;
-			mem_write_word(c.SP, get_BC());
-			c.cycles += 4;
+			c.cycles += 2;
+			timer_cycle();
+			write_word_ticked(c.SP, get_BC());
 		break;
 		case 0xC6:	/* ADD A, imm8 */
 			t = mem_get_byte(c.PC);
@@ -1908,31 +1944,38 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0xC7:	/* RST 00 */
+			c.cycles += 2;
+			timer_cycle();
 			c.SP -= 2;
-			mem_write_word(c.SP, c.PC);
-			c.PC = 0;
-			c.cycles += 4;
+			write_word_ticked(c.SP, c.PC);
+			c.PC = 0x00;
 		break;
 		case 0xC8:	/* RET Z */
 			if(flag_Z == 1)
 			{
-				c.PC = mem_get_word(c.SP);
+				c.cycles += 2;
+				timer_cycle();
+				c.PC = get_word_ticked(c.SP);
 				c.SP += 2;
-				c.cycles += 5;
+				c.cycles += 1;
 			} else {
 				c.cycles += 2;
 			}
 		break;
 		case 0xC9:	/* RET */
-			c.PC = mem_get_word(c.SP);
+			c.cycles += 1;
+			timer_cycle();
+			c.PC = get_word_ticked(c.SP);
 			c.SP += 2;
-			c.cycles += 4;
+			c.cycles += 1;
 		break;
-		case 0xCA:	/* JP z, mem16 */
+		case 0xCA:	/* JP Z, mem16 */
 			if(flag_Z == 1)
 			{
-				c.PC = mem_get_word(c.PC);
-				c.cycles += 4;
+				c.cycles += 1;
+				timer_cycle();
+				c.PC = get_word_ticked(c.PC);
+				c.cycles += 1;
 			} else {
 				c.PC += 2;
 				c.cycles += 3;
@@ -1943,32 +1986,33 @@ int cpu_cycle(void)
 			c.PC += 1;
 		break;
 		case 0xCC:	/* CALL Z, imm16 */
+			c.cycles += 1;
+			timer_cycle();
 			if(flag_Z == 1)
 			{
+				i = get_word_ticked(c.PC);
+				c.cycles += 1;
+				timer_cycle();
 				c.SP -= 2;
-				mem_write_word(c.SP, c.PC+2);
-				c.PC = mem_get_word(c.PC);
-				c.cycles += 6;
+				write_word_ticked(c.SP, c.PC+2);
+				c.PC = i;
 			} else {
 				c.PC += 2;
-				c.cycles += 3;
+				c.cycles += 2;
 			}
 		break;
-		case 0xCD:	/* call imm16 */
+		case 0xCD:	/* CALL imm16 */
 			c.cycles += 1;
 			timer_cycle();
 
-			i = mem_get_byte(c.PC);
+			i = get_word_ticked(c.PC);
+
 			c.cycles += 1;
-			timer_cycle();
-			i |= mem_get_byte(c.PC+1)<<8;
-			c.cycles += 2;
 			timer_cycle();
 
 			c.SP -= 2;
-			mem_write_word(c.SP, c.PC+2);
+			write_word_ticked(c.SP, c.PC+2);
 			c.PC = i;
-			c.cycles += 2;
 		break;
 		case 0xCE:	/* ADC a, imm8 */
 			t = mem_get_byte(c.PC);
@@ -1982,53 +2026,64 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0xCF:	/* RST 08 */
+			c.cycles += 2;
+			timer_cycle();
 			c.SP -= 2;
-			mem_write_word(c.SP, c.PC);
-			c.PC = 0x0008;
-			c.cycles += 4;
+			write_word_ticked(c.SP, c.PC);
+			c.PC = 0x08;
 		break;
 		case 0xD0:	/* RET NC */
 			if(flag_C == 0)
 			{
-				c.PC = mem_get_word(c.SP);
+				c.cycles += 2;
+				timer_cycle();
+				c.PC = get_word_ticked(c.SP);
 				c.SP += 2;
-				c.cycles += 5;
+				c.cycles += 1;
 			} else {
 				c.cycles += 2;
 			}
 		break;
 		case 0xD1:	/* POP DE */
-			s = mem_get_word(c.SP);
+			c.cycles += 1;
+			timer_cycle();
+			s = get_word_ticked(c.SP);
 			set_DE(s);
 			c.SP += 2;
-			c.cycles += 3;
 		break;
 		case 0xD2:	/* JP NC, mem16 */
 			if(flag_C == 0)
 			{
-				c.PC = mem_get_word(c.PC);
-				c.cycles += 4;
+				c.cycles += 1;
+				timer_cycle();
+				c.PC = get_word_ticked(c.PC);
+				c.cycles += 1;
 			} else {
 				c.PC += 2;
 				c.cycles += 3;
 			}
 		break;
 		case 0xD4:	/* CALL NC, mem16 */
+			c.cycles += 1;
+			timer_cycle();
 			if(flag_C == 0)
 			{
+				i = get_word_ticked(c.PC);
+				c.cycles += 1;
+				timer_cycle();
 				c.SP -= 2;
-				mem_write_word(c.SP, c.PC+2);
-				c.PC = mem_get_word(c.PC);
-				c.cycles += 6;
+				write_word_ticked(c.SP, c.PC+2);
+				c.PC = i;
 			} else {
 				c.PC += 2;
-				c.cycles += 3;
+				c.cycles += 2;
 			}
 		break;
 		case 0xD5:	/* PUSH DE */
 			c.SP -= 2;
-			mem_write_word(c.SP, get_DE());
-			c.cycles += 4;
+			c.cycles += 2;
+			timer_cycle();
+			write_word_ticked(c.SP, get_DE());
 		break;
 		case 0xD6:	/* SUB A, imm8 */
 			t = mem_get_byte(c.PC);
@@ -2041,47 +2096,58 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0xD7:	/* RST 10 */
+			c.cycles += 2;
+			timer_cycle();
 			c.SP -= 2;
-			mem_write_word(c.SP, c.PC);
-			c.PC = 0x0010;
-			c.cycles += 4;
+			write_word_ticked(c.SP, c.PC);
+			c.PC = 0x10;
 		break;
 		case 0xD8:	/* RET C */
 			if(flag_C == 1)
 			{
-				c.PC = mem_get_word(c.SP);
+				c.cycles += 2;
+				timer_cycle();
+				c.PC = get_word_ticked(c.SP);
 				c.SP += 2;
-				c.cycles += 5;
+				c.cycles += 1;
 			} else {
 				c.cycles += 2;
 			}
 		break;
 		case 0xD9:	/* RETI */
-			c.PC = mem_get_word(c.SP);
+			c.cycles += 1;
+			timer_cycle();
+			c.PC = get_word_ticked(c.SP);
 			c.SP += 2;
-			c.cycles += 4;
+			c.cycles += 1;
 			interrupt_enable();
 		break;
 		case 0xDA:	/* JP C, mem16 */
-			if(flag_C)
+			if(flag_C == 1)
 			{
-				c.PC = mem_get_word(c.PC);
-				c.cycles += 4;
+				c.cycles += 1;
+				timer_cycle();
+				c.PC = get_word_ticked(c.PC);
+				c.cycles += 1;
 			} else {
 				c.PC += 2;
 				c.cycles += 3;
 			}
 		break;
 		case 0xDC:	/* CALL C, mem16 */
+			c.cycles += 1;
+			timer_cycle();
 			if(flag_C == 1)
 			{
+				i = get_word_ticked(c.PC);
+				c.cycles += 1;
+				timer_cycle();
 				c.SP -= 2;
-				mem_write_word(c.SP, c.PC+2);
-				c.PC = mem_get_word(c.PC);
-				c.cycles += 6;
+				write_word_ticked(c.SP, c.PC+2);
+				c.PC = i;
 			} else {
 				c.PC += 2;
-				c.cycles += 3;
+				c.cycles += 2;
 			}
 		break;
 		case 0xDE:	/* SBC A, imm8 */
@@ -2096,10 +2162,11 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0xDF:	/* RST 18 */
+			c.cycles += 2;
+			timer_cycle();
 			c.SP -= 2;
-			mem_write_word(c.SP, c.PC);
-			c.PC = 0x0018;
-			c.cycles += 4;
+			write_word_ticked(c.SP, c.PC);
+			c.PC = 0x18;
 		break;
 		case 0xE0:	/* LD (FF00 + imm8), A */
 			t = mem_get_byte(c.PC);
@@ -2110,10 +2177,11 @@ int cpu_cycle(void)
 			c.cycles += 1;
 		break;
 		case 0xE1:	/* POP HL */
-			i = mem_get_word(c.SP);
+			c.cycles += 1;
+			timer_cycle();
+			i = get_word_ticked(c.SP);
 			set_HL(i);
 			c.SP += 2;
-			c.cycles += 3;
 		break;
 		case 0xE2:	/* LD (FF00 + C), A */
 			c.cycles += 1;
@@ -2124,8 +2192,9 @@ int cpu_cycle(void)
 		break;
 		case 0xE5:	/* PUSH HL */
 			c.SP -= 2;
-			mem_write_word(c.SP, get_HL());
-			c.cycles += 4;
+			c.cycles += 2;
+			timer_cycle();
+			write_word_ticked(c.SP, get_HL());
 		break;
 		case 0xE6:	/* AND A, imm8 */
 			t = mem_get_byte(c.PC);
@@ -2138,10 +2207,11 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0xE7:	/* RST 20 */
+			c.cycles += 2;
+			timer_cycle();
 			c.SP -= 2;
-			mem_write_word(c.SP, c.PC);
+			write_word_ticked(c.SP, c.PC);
 			c.PC = 0x20;
-			c.cycles += 4;
 		break;
 		case 0xE8:	/* ADD SP, imm8 */
 			c.cycles += 1;
@@ -2160,9 +2230,9 @@ int cpu_cycle(void)
 			c.cycles += 1;
 		break;
 		case 0xEA:	/* LD (mem16), a */
-			c.cycles += 3;
+			c.cycles += 1;
 			timer_cycle();
-			s = mem_get_word(c.PC);
+			s = get_word_ticked(c.PC);
 			mem_write_byte(s, c.A);
 			c.PC += 2;
 			c.cycles += 1;
@@ -2174,10 +2244,11 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0xEF:	/* RST 28 */
+			c.cycles += 2;
+			timer_cycle();
 			c.SP -= 2;
-			mem_write_word(c.SP, c.PC);
+			write_word_ticked(c.SP, c.PC);
 			c.PC = 0x28;
-			c.cycles += 4;
 		break;
 		case 0xF0:	/* LD A, (FF00 + imm8) */
 			t = mem_get_byte(c.PC);
@@ -2188,10 +2259,11 @@ int cpu_cycle(void)
 			c.cycles += 1;
 		break;
 		case 0xF1:	/* POP AF */
-			s = mem_get_word(c.SP);
+			c.cycles += 1;
+			timer_cycle();
+			s = get_word_ticked(c.SP);
 			set_AF(s&0xFFF0);
 			c.SP += 2;
-			c.cycles += 3;
 		break;
 		case 0xF2:	/* LD A, (FF00 + c) */
 			c.cycles += 1;
@@ -2215,10 +2287,11 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0xF7:	/* RST 30 */
+			c.cycles += 2;
+			timer_cycle();
 			c.SP -= 2;
-			mem_write_word(c.SP, c.PC);
+			write_word_ticked(c.SP, c.PC);
 			c.PC = 0x30;
-			c.cycles += 4;
 		break;
 		case 0xF8:	/* LD HL, SP + imm8 */
 			c.cycles += 1;
@@ -2237,9 +2310,9 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0xFA:	/* LD A, (mem16) */
-			s = mem_get_word(c.PC);
-			c.cycles += 3;
+			c.cycles += 1;
 			timer_cycle();
+			s = get_word_ticked(c.PC);
 			c.A = mem_get_byte(s);
 			c.PC += 2;
 			c.cycles += 1;
@@ -2261,10 +2334,11 @@ int cpu_cycle(void)
 			c.cycles += 2;
 		break;
 		case 0xFF:	/* RST 38 */
+			c.cycles += 2;
+			timer_cycle();
 			c.SP -= 2;
-			mem_write_word(c.SP, c.PC);
-			c.PC = 0x0038;
-			c.cycles += 4;
+			write_word_ticked(c.SP, c.PC);
+			c.PC = 0x38;
 		break;
 		default:
 			printf("Unhandled opcode %02X at %04X\n", b, c.PC);

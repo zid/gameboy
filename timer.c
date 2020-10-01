@@ -109,8 +109,7 @@ static void timer_tick(int delta)
 	{
 		unsigned int old_ticks;
 
-		if(reloaded)
-			reloaded = 0;
+		reloaded = 0;
 
 		/* Delays the counter reload by a tick */
 		if(reload)

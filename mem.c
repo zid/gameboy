@@ -47,6 +47,12 @@ void mem_bank_switch(unsigned int n)
 {
 	unsigned char *b = rom_getbytes();
 
+	if(!rom_bank_valid(n))
+	{
+		printf("Bank switch to illegal bank %d, ignoring.\n", n);
+		return;
+	}
+
 	memcpy(&mem[0x4000], &b[n * 0x4000], 0x4000);
 }
 

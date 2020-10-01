@@ -12,6 +12,8 @@
 unsigned char *bytes;
 unsigned int mapper;
 
+static long rom_size;
+
 static char *carts[] = {
 	[0x00] = "ROM ONLY",
 	[0x01] = "MBC1",
@@ -60,6 +62,20 @@ static char *banks[] = {
 	"Unknown"
 };
 
+static const int bank_sizes[] = {
+	32*1024,
+	64*1024,
+	128*1024,
+	256*1024,
+	512*1024,
+	1024*1024,
+	2048*1024,
+	4096*1024,
+	1152*1024,
+	1280*1024,
+	1536*1024
+};
+
 static char *rams[] = {
 	"None",
 	"  2KiB",
@@ -83,7 +99,7 @@ static unsigned char header[] = {
 	0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E
 };
 
-static int rom_init(unsigned char *rombytes)
+static int rom_init(unsigned char *rombytes, off_t filesize)
 {
 	char buf[17];
 	int type, bank_index, ram, region, version, i, pass;
@@ -107,7 +123,21 @@ static int rom_init(unsigned char *rombytes)
 	else if(bank_index > 7)
 		bank_index = 11;
 
+	if(bank_index >= 10)
+	{
+		printf("Illegal ROM size in header\n");
+		return 0;
+	}
+
 	printf("Rom size: %s\n", banks[bank_index]);
+
+	rom_size = bank_sizes[bank_index];
+
+	if(rom_size < filesize)
+	{
+		printf("File not big enough for ROM size.\n");
+		return 0;
+	}
 
 	ram = rombytes[0x149];
 	if(ram > 3)
@@ -190,7 +220,6 @@ int rom_load(const char *filename)
 	HANDLE f, map;
 #else
 	int f;
-	size_t length;
 	struct stat st;
 #endif
 	unsigned char *bytes;
@@ -220,10 +249,17 @@ int rom_load(const char *filename)
 	if(!bytes)
 		return 0;
 #endif
-	return rom_init(bytes);
+	return rom_init(bytes, st.st_size);
 }
 
 unsigned char *rom_getbytes(void)
 {
 	return bytes;
+}
+
+int rom_bank_valid(int bank)
+{
+	if(bank * 0x4000 > rom_size)
+		return 0;
+	return 1;
 }

@@ -39,7 +39,7 @@ static unsigned char *mem;
 
 static unsigned int DMA_pending;
 static unsigned short DMA_src;
-static int DMA_fill;
+static int DMA_copied;
 
 static int joypad_select_buttons, joypad_select_directions;
 
@@ -58,31 +58,29 @@ unsigned char mem_get_raw(unsigned short p)
 
 unsigned char mem_get_byte(unsigned short i)
 {
-	unsigned long elapsed;
 	unsigned char mask = 0;
 
 	if(i < 0x100 && bootrom_enabled)
 		return bootrom[i];
 
-	if(DMA_pending && DMA_pending <= cpu_get_cycles() && i < 0xFF00)
+	if(DMA_pending && cpu_get_cycles() >= DMA_pending)
 	{
-		elapsed = cpu_get_cycles() - DMA_pending;
-		if(elapsed >= 160)
-		{
-			elapsed = 160;
-			memcpy(&mem[0xFE00+DMA_fill], &mem[DMA_src+DMA_fill], elapsed-DMA_fill);
+		unsigned long elapsed;
 
-			DMA_pending = 0;
-			DMA_src = 0;
-			DMA_fill = 0;
+		if(!DMA_copied)
+		{
+			memcpy(&mem[0xFE00], &mem[DMA_src], 0xA0);
+			DMA_copied = 1;
 		}
-		else
-		{
-			memcpy(&mem[0xFE00+DMA_fill], &mem[DMA_src+DMA_fill], elapsed-DMA_fill);
-			DMA_fill = elapsed;
 
+		elapsed = cpu_get_cycles() - DMA_pending;
+
+		if(elapsed >= 160)
+			DMA_pending = 0;
+		else if(i < 0xFF00)
+		{
 			/* Reading from OAM during DMA always gives 0xFF */
-			if(i >= 0xFE00)
+			if(i >= 0xFE00 && i <= 0xFEA0)
 				return 0xFF;
 
 			/* !A ^ B checks if A and B are both 0 or both 1 */
@@ -138,7 +136,6 @@ unsigned char mem_get_byte(unsigned short i)
 	if(i >= 0x8000 && i <= 0x9FFF && (lcd_get_stat() & 3) == 3)
 		return 0xFF;
 
-
 	return mem[i];
 }
 
@@ -150,6 +147,27 @@ unsigned short mem_get_word(unsigned short i)
 void mem_write_byte(unsigned short d, unsigned char i)
 {
 	unsigned int filtered = 0;
+
+	if(DMA_pending && DMA_pending <= cpu_get_cycles())
+	{
+		long elapsed;
+
+		if(!DMA_copied)
+		{
+			memcpy(&mem[0xFE00], &mem[DMA_src], 0xA0);
+			DMA_copied = 1;
+		}
+
+		elapsed = cpu_get_cycles() - DMA_pending;
+
+		if(elapsed >= 160)
+			DMA_pending = 0;
+		else if(d >= 0xFE00 && d <= 0xFEA0)
+			return;
+
+		else if(!(((DMA_src >> 13) == 4) ^ ((d >> 13) == 4)))
+			return;
+	}
 
 	switch(rom_get_mapper())
 	{
@@ -210,13 +228,13 @@ void mem_write_byte(unsigned short d, unsigned char i)
 		break;
 		case 0xFF46: /* OAM DMA */
 			/* This is the dead cycle where OAM DMA is busy, can't restart */
-			if(DMA_pending >= cpu_get_cycles())
+			if(DMA_pending == cpu_get_cycles())
 				break;
 
 			/* Start or restart OAM DMA */
 			DMA_pending = cpu_get_cycles()+2;
-			DMA_src = i*0x100;
-			DMA_fill = 0;
+			DMA_src = i * 0x100;
+			DMA_copied = 0;
 		break;
 		case 0xFF47:
 			lcd_write_bg_palette(i);

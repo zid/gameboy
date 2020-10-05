@@ -223,6 +223,7 @@ int rom_load(const char *filename)
 	struct stat st;
 #endif
 	unsigned char *bytes;
+	size_t rom_size;
 
 #ifdef _WIN32
 	f = CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL,
@@ -230,6 +231,8 @@ int rom_load(const char *filename)
 
 	if(f == INVALID_HANDLE_VALUE)
 		return 0;
+
+	rom_size = GetFileSize(f, NULL);
 
 	map = CreateFileMapping(f, NULL, PAGE_READONLY, 0, 0, NULL);
 	if(!map)
@@ -245,11 +248,13 @@ int rom_load(const char *filename)
 	if(fstat(f, &st) == -1)
 		return 0;
 
-	bytes = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, f, 0);
+	rom_size = st.st_size;
+
+	bytes = mmap(NULL, rom_size, PROT_READ, MAP_PRIVATE, f, 0);
 	if(!bytes)
 		return 0;
 #endif
-	return rom_init(bytes, st.st_size);
+	return rom_init(bytes, rom_size);
 }
 
 unsigned char *rom_getbytes(void)

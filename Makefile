@@ -16,4 +16,4 @@ gameboy: $(OBJ)
 	$(CC) $(CFLAGS) -flto $^ -c
 
 clean:
-	rm -f gameboy gameboy.exe *.o
+	$(RM) -f gameboy gameboy.exe *.o

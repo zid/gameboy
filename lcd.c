@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <string.h>
 
+static int leftover;
 static int lcd_cycles;
 static int lcd_line, prev_line;
 static int lcd_ly_compare;
@@ -17,6 +18,8 @@ static int oam_int;
 static int vblank_int;
 static int hblank_int;
 static int lcd_mode;
+
+static int irq_level, new_level;
 
 /* LCD Control */
 static int lcd_enabled;
@@ -44,6 +47,13 @@ enum {
 	VFLIP = 0x40,
 	HFLIP = 0x20,
 	PNUM  = 0x10
+};
+
+enum LCD_INT {
+	LCD_HBLANK = 1,
+	LCD_VBLANK = 2,
+	LCD_OAM    = 4,
+	LCD_LY     = 8
 };
 
 void lcd_write_bg_palette(unsigned char n)
@@ -85,7 +95,10 @@ int lcd_get_line(void)
 #ifdef DEBUG
 	return 0x90;
 #else
-	return lcd_line;
+	if(lcd_line == 153 && (leftover % 456) >= 4)
+		return 0;
+	else
+		return lcd_line;
 #endif
 }
 
@@ -313,8 +326,6 @@ static void lcd_do_line(int line, int cycle)
 	if(lcd_mode != 2 && cycle < 80)
 	{
 		lcd_mode = 2;
-		if(oam_int)
-			interrupt(INTR_LCDSTAT);
 	}
 	else
 		if(lcd_mode == 2 && cycle >= 80)
@@ -398,29 +409,42 @@ skip_bg:
 				window_lines++;
 			window_used_line = 0;
 			scx_low_latch = 0;
-			if(hblank_int)
-				interrupt(INTR_LCDSTAT);
 		}
 	}
 }
 
+static void lcd_interrupt(enum LCD_INT src)
+{
+	new_level |= src;
+
+	if(!!irq_level != !!new_level)
+		interrupt(INTR_LCDSTAT);
+}
+
 int lcd_cycle(void)
 {
-	int leftover;
-
 	/* Amount of cycles left over since the last full frame */
 	leftover = lcd_cycles % (456 * 154);
 
 	/* Each scanline is 456 cycles */
 	lcd_line = leftover / 456;
 
-	if(lcd_enabled && lcd_line != prev_line && ly_int && lcd_line == lcd_ly_compare)
-	{
-		interrupt(INTR_LCDSTAT);
-	}
-
 	if(lcd_enabled)
+	{
+		if(ly_int)
+		{
+			if(lcd_line == lcd_ly_compare || (lcd_line == 153 && lcd_ly_compare == 0 && (leftover % 456) >= 4))
+				lcd_interrupt(LCD_LY);
+		}
+		if(oam_int && lcd_mode == 2)
+			lcd_interrupt(LCD_OAM);
+		if(vblank_int && lcd_line >= 144)
+			lcd_interrupt(LCD_VBLANK);
+		if(hblank_int && lcd_mode == 0)
+			lcd_interrupt(LCD_HBLANK);
+
 		lcd_do_line(lcd_line, leftover % 456);
+	}
 
 	if(lcd_line == 144 && prev_line == 143)
 	{
@@ -430,8 +454,6 @@ int lcd_cycle(void)
 		sdl_frame();
 		if(lcd_enabled)
 		{
-			if(vblank_int)
-				interrupt(INTR_LCDSTAT);
 			interrupt(INTR_VBLANK);
 		}
 	}
@@ -439,6 +461,9 @@ int lcd_cycle(void)
 	prev_line = lcd_line;
 
 	lcd_cycles++;
+
+	irq_level = new_level;
+	new_level =  0;
 
 	return 1;
 }

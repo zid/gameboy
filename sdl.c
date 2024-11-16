@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "cpu.h"
+#include <unistd.h>
 
 static unsigned int frames;
 
@@ -120,6 +121,8 @@ void sdl_frame(void)
 	frames++;
 
 	SDL_UpdateWindowSurface(window);
+
+	usleep(16000);
 }
 
 void sdl_quit()
